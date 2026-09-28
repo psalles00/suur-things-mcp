@@ -923,7 +923,7 @@ function resolveList(id){
 }
 
 // --- list view ---
-let LIST_ITEMS=[], LIST_KIND="", LIST_NOTES=null, CUR_FILTER=null, LIST_ROLLUP=true, LIST_ORDER_SYNCED=false, LIST_ORDER_ERROR="";
+let LIST_ITEMS=[], LIST_KIND="", LIST_NOTES=null, CUR_FILTER=null, LIST_ROLLUP=true, LIST_ORDER_SYNCED=false, LIST_ORDER_WRITABLE=false, LIST_ORDER_ERROR="";
 let ACTIVE_LIST_DRAG=null;
 async function renderList(sel, view="list"){
   const matrix=view==="matrix", levels=view==="levels", cards=view==="cards", timeline=view==="timeline";
@@ -940,7 +940,7 @@ async function renderList(sel, view="list"){
   const data=await getJSON("/api/items?id="+encodeURIComponent(sel.id));
   if(!data.ok){ c.innerHTML=`<div class="err">${esc(data.error||"error")}</div>`; return; }
   LIST_ITEMS=data.items; LIST_KIND=data.kind; LIST_NOTES=data.notes||null; CUR_FILTER=null; LIST_ROLLUP=data.rollup!==false;
-  LIST_ORDER_SYNCED=data.order_synced===true; LIST_ORDER_ERROR=data.order_error||"";
+  LIST_ORDER_SYNCED=data.order_synced===true; LIST_ORDER_WRITABLE=data.order_writable===true; LIST_ORDER_ERROR=data.order_error||"";
   $("#rollup-vt").classList.toggle("on", LIST_KIND==="area" && LIST_ROLLUP);
   LAST_ITEMS={}; LIST_ITEMS.forEach(it=>{ LAST_ITEMS[it.uuid]=it.title; });
   $("#organize-btn").style.display=(view==="list"&&(LIST_KIND==="project"||LIST_KIND==="area"||sel.id==="inbox"))?"flex":"none";
@@ -1016,6 +1016,11 @@ function renderRows(){
   if((LIST_KIND==="project" || SEL.id==="inbox") && !LIST_ORDER_SYNCED){
     const warning=document.createElement("div"); warning.className="err";
     warning.textContent="Native Things order unavailable. Dragging is disabled. "+LIST_ORDER_ERROR;
+    c.appendChild(warning);
+  }
+  if((LIST_KIND==="project" || SEL.id==="inbox") && LIST_ORDER_SYNCED && !LIST_ORDER_WRITABLE){
+    const warning=document.createElement("div"); warning.className="err";
+    warning.textContent="Things does not apply task reordering through its script interface. Exact-position dragging is unavailable.";
     c.appendChild(warning);
   }
   if(LIST_NOTES){ const n=document.createElement("div"); n.className="proj-notes"; n.innerHTML=linkify(LIST_NOTES); c.appendChild(n); }
@@ -1107,7 +1112,7 @@ function rowEl(it){
   row.draggable=true;  // drag onto a sidebar bucket (Today/Anytime/Someday) to reschedule, or a heading to move
   row.addEventListener("dragstart",e=>{ e.dataTransfer.setData("text/id",it.uuid); ACTIVE_LIST_DRAG={kind:"task",id:it.uuid}; row.classList.add("dragging"); document.body.classList.add("dragging-task"); });
   row.addEventListener("dragend",()=>{ ACTIVE_LIST_DRAG=null; row.classList.remove("dragging"); document.body.classList.remove("dragging-task"); document.querySelectorAll(".row.drop-before,.row.drop-after").forEach(el=>el.classList.remove("drop-before","drop-after")); });
-  if(MODE==="list" && !CUR_FILTER && LIST_ORDER_SYNCED && (LIST_KIND==="project" || SEL.id==="inbox") && !done && !cancel){
+  if(MODE==="list" && !CUR_FILTER && LIST_ORDER_SYNCED && LIST_ORDER_WRITABLE && (LIST_KIND==="project" || SEL.id==="inbox") && !done && !cancel){
     row.addEventListener("dragover",e=>{
       const magic=ACTIVE_LIST_DRAG?.kind==="magic";
       const source=ACTIVE_LIST_DRAG?.kind==="task"?ACTIVE_LIST_DRAG.id:null;
@@ -2109,9 +2114,9 @@ function wireStatic(){
   on("#cmdk-btn",openCmdk);
   on("#add-btn",()=>openCreate("todo"));
   const addBtn=$("#add-btn"); addBtn.draggable=true;
-  addBtn.title="Click to add; drag onto a task to insert at that position in Things";
+  addBtn.title="Click to add a task";
   addBtn.addEventListener("dragstart",e=>{
-    if(MODE!=="list" || CUR_FILTER || !LIST_ORDER_SYNCED || !(LIST_KIND==="project" || SEL?.id==="inbox")){ e.preventDefault(); return; }
+    if(MODE!=="list" || CUR_FILTER || !LIST_ORDER_SYNCED || !LIST_ORDER_WRITABLE || !(LIST_KIND==="project" || SEL?.id==="inbox")){ e.preventDefault(); return; }
     ACTIVE_LIST_DRAG={kind:"magic"}; e.dataTransfer.setData("application/x-suur-magic-plus","1");
     e.dataTransfer.effectAllowed="copy"; addBtn.classList.add("dragging");
   });

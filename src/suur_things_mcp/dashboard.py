@@ -233,6 +233,7 @@ async def _items(request: Request) -> JSONResponse:
                     raise native_order.NativeOrderError("Things order and database disagree. Refresh after sync.")
                 data["items"].sort(key=lambda item: positions.get(item["uuid"], len(ids)))
                 data["order_synced"] = True
+                data["order_writable"] = native_order.EXACT_ORDER_WRITABLE
             except native_order.NativeOrderError as exc:
                 data["order_synced"] = False
                 data["order_error"] = str(exc)

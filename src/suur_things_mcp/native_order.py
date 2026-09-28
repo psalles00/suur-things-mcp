@@ -15,6 +15,11 @@ from . import reads
 
 
 _ID = re.compile(r"^[A-Za-z0-9_-]{10,80}$")
+# Things exposes the list order for reading, but its undocumented reorder
+# command currently returns success without changing the list. Keep writes
+# disabled until an exact native readback has been demonstrated.
+EXACT_ORDER_WRITABLE = False
+_UNAVAILABLE = "Exact positioning is unavailable: Things accepts the reorder command but does not apply it."
 _SCRIPT = r'''
 on run argv
     set containerKind to item 1 of argv
@@ -68,6 +73,8 @@ def native_ids(list_id: str) -> list[str]:
 
 def placement_target(list_id: str, target_id: str) -> dict:
     """Validate placement against the read-only DB before creating a task."""
+    if not EXACT_ORDER_WRITABLE:
+        raise NativeOrderError(_UNAVAILABLE)
     if list_id == "inbox":
         tasks = reads.inbox()
     elif _ID.fullmatch(list_id):
@@ -127,6 +134,8 @@ def reorder(list_id: str, moved_id: str, target_id: str, before: bool) -> list[s
     sequence submitted from an older tab. A failed readback is reported rather
     than presented as success.
     """
+    if not EXACT_ORDER_WRITABLE:
+        raise NativeOrderError(_UNAVAILABLE)
     if not _ID.fullmatch(moved_id) or not _ID.fullmatch(target_id):
         raise NativeOrderError("Invalid task ID.")
     tasks, original = _tasks_and_order(list_id)
