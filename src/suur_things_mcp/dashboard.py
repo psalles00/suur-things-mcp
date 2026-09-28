@@ -12,8 +12,8 @@ projects. The main panel shows whatever you select.
 Project-stage placement and priority quadrants are browser-side overlays (stored
 in board.json, never written to Things), so dragging needs no auth token. Editing
 a task's fields writes to Things via the URL Scheme and needs THINGS_AUTH_TOKEN.
-Exact Inbox/project task ordering uses Things' undocumented AppleScript reorder
-command, with a native readback before the dashboard reports success.
+Exact Inbox/project task ordering selects the task through AppleScript, invokes
+Things' Move Up/Down shortcut, and reads the native order back before success.
 
 Run:
   - `suur-things-mcp dashboard`  → foreground (CLI), opens your browser
@@ -233,7 +233,9 @@ async def _items(request: Request) -> JSONResponse:
                     raise native_order.NativeOrderError("Things order and database disagree. Refresh after sync.")
                 data["items"].sort(key=lambda item: positions.get(item["uuid"], len(ids)))
                 data["order_synced"] = True
-                data["order_writable"] = native_order.EXACT_ORDER_WRITABLE
+                data["order_writable"] = native_order.order_writable()
+                if not data["order_writable"]:
+                    data["order_error"] = "Enable SUUR Dashboard in Privacy & Security > Device Control and Data Access to drag tasks."
             except native_order.NativeOrderError as exc:
                 data["order_synced"] = False
                 data["order_error"] = str(exc)

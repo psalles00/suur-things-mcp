@@ -1020,7 +1020,7 @@ function renderRows(){
   }
   if((LIST_KIND==="project" || SEL.id==="inbox") && LIST_ORDER_SYNCED && !LIST_ORDER_WRITABLE){
     const warning=document.createElement("div"); warning.className="err";
-    warning.textContent="Things does not apply task reordering through its script interface. Exact-position dragging is unavailable.";
+    warning.textContent=LIST_ORDER_ERROR||"Enable SUUR Dashboard in macOS privacy settings to drag tasks into an exact position.";
     c.appendChild(warning);
   }
   if(LIST_NOTES){ const n=document.createElement("div"); n.className="proj-notes"; n.innerHTML=linkify(LIST_NOTES); c.appendChild(n); }

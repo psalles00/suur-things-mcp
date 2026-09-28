@@ -1,13 +1,14 @@
-"""Exact Things task order via its undocumented AppleScript reorder command.
+"""Exact Things task order via the native Move Up/Down shortcuts.
 
-The database remains read-only. Restrict writes to one project or Inbox, keep
-the complete open-task sequence, and verify the result from Things afterwards.
+The database remains read-only. Restrict moves to one heading in a project or
+Inbox, and verify every move against the order read back from Things.
 """
 
 from __future__ import annotations
 
 import re
 import json
+import ctypes
 import subprocess
 import time
 
@@ -15,26 +16,31 @@ from . import reads
 
 
 _ID = re.compile(r"^[A-Za-z0-9_-]{10,80}$")
-# Things exposes the list order for reading, but its undocumented reorder
-# command currently returns success without changing the list. Keep writes
-# disabled until an exact native readback has been demonstrated.
-EXACT_ORDER_WRITABLE = False
-_UNAVAILABLE = "Exact positioning is unavailable: Things accepts the reorder command but does not apply it."
-_SCRIPT = r'''
+_ACCESS_ERROR = "Allow SUUR Dashboard in System Settings > Privacy & Security > Device Control and Data Access to reorder Things tasks."
+_MOVE_SCRIPT = r'''
 on run argv
-    set containerKind to item 1 of argv
-    set containerID to item 2 of argv
-    set orderedIDs to item 3 of argv
+    set taskID to item 1 of argv
+    set moveDirection to item 2 of argv
+    set moveCount to (item 3 of argv) as integer
     tell application "Things3"
-        if containerKind is "inbox" then
-            set destinationContainer to list id "TMInboxListSource"
-        else
-            set destinationContainer to project id containerID
-        end if
-        _private_experimental_ reorder to dos in destinationContainer with ids orderedIDs
+        show (to do id taskID)
+        activate
+    end tell
+    tell application "System Events"
+        tell process "Things3"
+            repeat moveCount times
+                if moveDirection is "up" then
+                    key code 126 using command down
+                else
+                    key code 125 using command down
+                end if
+                delay 0.04
+            end repeat
+        end tell
     end tell
 end run
 '''
+_ACCESS_SCRIPT = 'tell application "System Events" to tell process "Things3" to get count of windows'
 _READ_SCRIPT = r'''
 function run(argv) {
     var things = Application('Things3');
@@ -71,10 +77,30 @@ def native_ids(list_id: str) -> list[str]:
         raise NativeOrderError(f"Could not read the native order from Things: {exc}") from exc
 
 
+def order_writable() -> bool:
+    try:
+        ax = ctypes.CDLL("/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices")
+        ax.AXIsProcessTrusted.restype = ctypes.c_bool
+        return bool(ax.AXIsProcessTrusted())
+    except OSError:
+        return False
+
+
+def _check_access() -> None:
+    if not order_writable():
+        raise NativeOrderError(_ACCESS_ERROR)
+    try:
+        result = subprocess.run(["/usr/bin/osascript", "-e", _ACCESS_SCRIPT],
+                                capture_output=True, text=True, timeout=3)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise NativeOrderError(f"{_ACCESS_ERROR} ({exc})") from exc
+    if result.returncode:
+        raise NativeOrderError(_ACCESS_ERROR)
+
+
 def placement_target(list_id: str, target_id: str) -> dict:
     """Validate placement against the read-only DB before creating a task."""
-    if not EXACT_ORDER_WRITABLE:
-        raise NativeOrderError(_UNAVAILABLE)
+    _check_access()  # Fail before creating a task that cannot be positioned.
     if list_id == "inbox":
         tasks = reads.inbox()
     elif _ID.fullmatch(list_id):
@@ -112,19 +138,16 @@ def _tasks(list_id: str) -> list[dict]:
     return _tasks_and_order(list_id)[0]
 
 
-def _write(list_id: str, ids: list[str]) -> None:
-    if not ids or any(not _ID.fullmatch(i) for i in ids) or len(ids) != len(set(ids)):
-        raise NativeOrderError("Invalid Things task order.")
-    kind = "inbox" if list_id == "inbox" else "project"
+def _move(task_id: str, direction: str, count: int) -> None:
     try:
         result = subprocess.run(
-            ["/usr/bin/osascript", "-e", _SCRIPT, "--", kind, list_id, ",".join(ids)],
-            capture_output=True, text=True, timeout=15,
+            ["/usr/bin/osascript", "-e", _MOVE_SCRIPT, "--", task_id, direction, str(count)],
+            capture_output=True, text=True, timeout=10,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        raise NativeOrderError(f"Things did not accept the order: {exc}") from exc
+        raise NativeOrderError(f"Things did not move the task: {exc}") from exc
     if result.returncode:
-        raise NativeOrderError("Things did not accept the order: " + result.stderr.strip()[:300])
+        raise NativeOrderError("Things did not move the task: " + result.stderr.strip()[:300])
 
 
 def reorder(list_id: str, moved_id: str, target_id: str, before: bool) -> list[str]:
@@ -134,8 +157,7 @@ def reorder(list_id: str, moved_id: str, target_id: str, before: bool) -> list[s
     sequence submitted from an older tab. A failed readback is reported rather
     than presented as success.
     """
-    if not EXACT_ORDER_WRITABLE:
-        raise NativeOrderError(_UNAVAILABLE)
+    _check_access()
     if not _ID.fullmatch(moved_id) or not _ID.fullmatch(target_id):
         raise NativeOrderError("Invalid task ID.")
     tasks, original = _tasks_and_order(list_id)
@@ -151,15 +173,15 @@ def reorder(list_id: str, moved_id: str, target_id: str, before: bool) -> list[s
     order.insert(idx, moved_id)
     if order == original:
         return order
-    _write(list_id, order)
-    for _ in range(12):
-        time.sleep(0.1)
-        try:
-            current_ids = native_ids(list_id)
-        except NativeOrderError:
-            continue  # Things can briefly stop answering Apple Events while syncing.
-        if current_ids == order:
+    destination = order.index(moved_id)
+    source = original.index(moved_id)
+    _move(moved_id, "up" if source > destination else "down", abs(source - destination))
+    for attempt in range(12):
+        if attempt:
+            time.sleep(0.1)
+        observed = native_ids(list_id)
+        if observed == order:
             return order
-        if set(current_ids) != set(original):
-            raise NativeOrderError("Things changed while reordering. Refresh both lists.")
-    raise NativeOrderError("Things did not confirm the new order. Check the native app.")
+        if set(observed) != set(original):
+            raise NativeOrderError("Things changed while moving the task. Refresh both lists.")
+    raise NativeOrderError("Things did not confirm the requested position. Check the native app.")

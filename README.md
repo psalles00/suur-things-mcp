@@ -26,17 +26,17 @@ Now ask your agent **"What should I work on today?"** — it reads your real Thi
 Two data paths, deliberately split:
 
 - **Reads** come straight from the local Things SQLite database — instant and complete: Today, Upcoming, Inbox, Anytime, Someday, Logbook, Trash, full-text search, projects, areas, tags, and full item detail.
-- **Field writes** use the official [Things URL Scheme](https://culturedcode.com/things/support/articles/2803573/). This local fork also uses an undocumented Things AppleScript command for exact task ordering in Inbox and projects.
+- **Field writes** use the official [Things URL Scheme](https://culturedcode.com/things/support/articles/2803573/). This local fork selects tasks with AppleScript and uses Things' native Move Up/Down keyboard shortcuts for exact ordering in Inbox and projects.
 
-**Why this matters:** Cultured Code's [AI-integration guidance](https://culturedcode.com/things/support/articles/5510170/) says direct database writes are unsafe. This fork never writes to SQLite. Exact task ordering is experimental because its AppleScript command is undocumented and could change in a Things update.
+**Why this matters:** Cultured Code's [AI-integration guidance](https://culturedcode.com/things/support/articles/5510170/) says direct database writes are unsafe. This fork never writes to SQLite. Ordering depends on macOS Accessibility access and Things' [Move Up/Down shortcuts](https://culturedcode.com/things/support/articles/2785159/).
 
-The dashboard accepts task reordering only within one heading, sends the full native order to Things, then reads it back. If Things does not confirm the result, the dashboard reports an error. Dragging the Magic Plus creates a task through the URL Scheme before positioning it; if positioning fails, the task remains created and the dashboard says so.
+The dashboard accepts task reordering only within one heading, moves the selected task in Things, then reads the order back. If Things does not confirm the result, the dashboard reports an error. Dragging the Magic Plus creates a task through the URL Scheme before positioning it; if positioning fails, the task remains created and the dashboard says so. Grant **SUUR Dashboard** access in macOS System Settings > Privacy & Security > Device Control and Data Access (Accessibility on older macOS versions) before using either drag operation.
 
 > **Privacy:** an agent connected to this server can read your to-do and note content, which is then sent to whatever model you're using. Review your agent's privacy policy. Nothing here phones home; there's no telemetry and no bundled LLM.
 
 ### Why not direct DB writes?
 
-Because Cultured Code says direct SQLite writes are unsafe. Reads use read-only connections; field changes use `things:///` URLs. The dashboard's exact-order feature is the sole exception to URL-only writes and calls Things through AppleScript.
+Because Cultured Code says direct SQLite writes are unsafe. Reads use read-only connections; field changes use `things:///` URLs. The dashboard orders tasks by driving Things' native shortcuts through AppleScript and System Events.
 
 ---
 
@@ -60,14 +60,14 @@ Because Cultured Code says direct SQLite writes are unsafe. Reads use read-only 
 **Capture, find & tidy**
 - ⌘ **Command palette (⌘K)** — jump to any list/project/board, search tasks, create, switch view, and act on a task (complete / reschedule / move) — all keyboard-only.
 - ➕ **Natural-language quick-add** — type `buy milk tomorrow #errand` and it's parsed into a real to-do.
-- ↕ **Native task order (local fork)** — in a project or Inbox, drag a task beside another task in the same heading, or drag the top-right Plus onto a row to create there. The panel reads the order back from Things. This uses an undocumented AppleScript command and may stop working after a Things update.
+- ↕ **Native task order (local fork)** — in a project or Inbox, drag a task beside another task in the same heading, or drag the top-right Plus onto a row to create there. The panel reads the order back from Things. Requires macOS Accessibility permission for SUUR Dashboard and briefly brings Things to the foreground.
 - ◉ **Optional macOS menu bar utility** — shows whether the local dashboard is running and provides open/copy shortcuts. [Source and installation](extras/suur-menu/README.md).
 - ◌ **Dedicated login app** — runs the dashboard under its own macOS app identity so its Things database access can be granted separately from Homebrew Python. [Setup and token instructions](extras/suur-dashboard/README.md).
 - 🧹 **Agent triage** — *Triage Inbox* (propose a home + tags + date per item) and *Organize* (tidy titles/notes/tags). Your agent proposes; you review every change before anything is written.
 - 🎬 **Cards view** — a project full of links becomes a wall of **YouTube thumbnails** (a perfect "watch later").
 - 🏷 **Tag filter chips** + full-text **search** across everything; inline rename, column reorder, board-card progress rings.
 
-All of it free, local, open source. No cloud, no account, no telemetry. Exact task ordering in this local fork uses the experimental AppleScript command described above.
+All of it free, local, open source. No cloud, no account, no telemetry.
 
 ---
 
@@ -300,7 +300,7 @@ Reads use [`things.py`](https://github.com/thingsapi/things.py), which opens the
 This is a **local-first, single-user macOS tool**. It's built so the worst case stays small.
 
 - **Reads are read-only.** The SQLite database is opened `mode=ro&immutable=1`; the server never writes to it.
-- **No delete-forever operation exists.** Field writes use Things' documented URL Scheme. Exact task reorder uses an undocumented AppleScript command and should be treated as experimental.
+- **No delete-forever operation exists.** Field writes use Things' documented URL Scheme. Exact task reorder uses the native Move Up/Down shortcuts with readback.
 - **The dashboard binds to `127.0.0.1` only** and never to your network. State-changing requests are guarded two ways: `TrustedHostMiddleware` rejects any request whose `Host` isn't `127.0.0.1`/`localhost` (blocks DNS-rebinding), and `_OriginGuard` rejects any POST whose `Origin` isn't the dashboard's own `scheme://host:port` (blocks a page on another localhost port from driving it).
 - **The auth token gates writes.** Modifying existing items needs `THINGS_AUTH_TOKEN`; it's resolved from the env or a `chmod 600` file *outside* any repo, and it's redacted from every URL and error message the server returns.
 - **The ✨ organize agent runs sandboxed.** The spawned `claude`/`codex` CLI gets no MCP servers and no tools, runs read-only, and the `THINGS_AUTH_TOKEN` is stripped from its environment. Its suggestions are reviewed by you before anything is written.
