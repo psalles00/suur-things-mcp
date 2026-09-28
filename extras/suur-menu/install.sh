@@ -16,7 +16,9 @@ cat > "$agent_path" <<PLIST
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
 <key>Label</key><string>com.pedrosalles.suur-menu</string>
-<key>ProgramArguments</key><array><string>$app_dir/Contents/MacOS/SuurMenu</string></array>
+<key>ProgramArguments</key><array>
+<string>/usr/bin/open</string><string>-g</string><string>-W</string><string>-a</string><string>$app_dir</string>
+</array>
 <key>RunAtLoad</key><true/>
 <key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>
 <key>ThrottleInterval</key><integer>10</integer>

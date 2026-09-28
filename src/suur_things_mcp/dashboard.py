@@ -439,10 +439,7 @@ async def _add(request: Request) -> JSONResponse:
                 or body.get("list_id") not in (None, list_id)):
             return JSONResponse({"ok": False, "error": "invalid placement"}, status_code=400)
         try:
-            targets = await run_in_threadpool(lambda: native_order._tasks(list_id))
-            target = next((t for t in targets if t["uuid"] == target_id), None)
-            if target is None:
-                raise native_order.NativeOrderError("Target task is no longer in Things. Refresh the list.")
+            target = await run_in_threadpool(lambda: native_order.placement_target(list_id, target_id))
             if list_id != "inbox":
                 body["list_id"] = list_id
                 if target.get("heading"):

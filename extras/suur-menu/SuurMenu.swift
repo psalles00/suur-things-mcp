@@ -9,7 +9,7 @@ private enum SUUR {
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+    private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let menu = NSMenu()
     private let stateItem = NSMenuItem(title: "Verificando SUUR…", action: nil, keyEquivalent: "")
     private let startItem = NSMenuItem(title: "Tentar iniciar serviço", action: #selector(startService), keyEquivalent: "")
@@ -43,6 +43,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             menuItem.target = self
         }
         item.menu = menu
+        item.button?.title = "SUUR"
+        item.button?.imagePosition = .imageLeading
         item.button?.toolTip = "SUUR Things"
     }
 
