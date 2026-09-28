@@ -6,6 +6,13 @@ app_dir="$HOME/Applications/SUUR Menu.app"
 agent_path="$HOME/Library/LaunchAgents/com.pedrosalles.suur-menu.plist"
 uid=$(id -u)
 
+launchctl bootout "gui/$uid/com.pedrosalles.suur-menu" 2>/dev/null || true
+# `open -W` can exit while the status app survives as a launchd child. Reusing
+# that process leaves the old binary and old status item running after upgrade.
+for app_pid in ${(f)"$(ps -Ao pid=,comm= | awk -v app="$app_dir/Contents/MacOS/SuurMenu" 'index($0, app) > 0 { print $1 }')"}; do
+  [[ -n "$app_pid" ]] && kill "$app_pid" 2>/dev/null || true
+done
+
 mkdir -p "$app_dir/Contents/MacOS" "$HOME/Library/LaunchAgents" "$HOME/Library/Logs"
 swiftc -O -parse-as-library -framework AppKit "$script_dir/SuurMenu.swift" -o "$app_dir/Contents/MacOS/SuurMenu"
 cp "$script_dir/Info.plist" "$app_dir/Contents/Info.plist"
@@ -28,6 +35,5 @@ cat > "$agent_path" <<PLIST
 </dict></plist>
 PLIST
 
-launchctl bootout "gui/$uid" "$agent_path" 2>/dev/null || true
 launchctl bootstrap "gui/$uid" "$agent_path"
 echo "SUUR Menu installed at $app_dir"

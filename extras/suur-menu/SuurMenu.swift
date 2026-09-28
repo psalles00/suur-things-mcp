@@ -9,7 +9,7 @@ private enum SUUR {
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+    private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     private let menu = NSMenu()
     private let stateItem = NSMenuItem(title: "Verificando SUUR…", action: nil, keyEquivalent: "")
     private let startItem = NSMenuItem(title: "Tentar iniciar serviço", action: #selector(startService), keyEquivalent: "")
@@ -29,6 +29,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func configureMenu() {
+        item.autosaveName = "com.pedrosalles.suur-menu.status"
+        item.isVisible = true
         stateItem.isEnabled = false
         menu.addItem(stateItem)
         menu.addItem(.separator())
@@ -43,15 +45,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             menuItem.target = self
         }
         item.menu = menu
-        item.button?.title = "SUUR"
-        item.button?.imagePosition = .imageLeading
+        // A compact item stays discoverable when the menu bar is crowded.
+        item.button?.title = "S"
         item.button?.toolTip = "SUUR Things"
     }
 
     private func updateState(healthy: Bool, version: String?, checking: Bool = false) {
         lastHealthy = healthy
-        let symbol = checking ? "circle.dotted" : (healthy ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-        item.button?.image = NSImage(systemSymbolName: symbol, accessibilityDescription: "Estado do SUUR")
+        item.button?.image = nil
         item.button?.contentTintColor = checking ? .secondaryLabelColor : (healthy ? .systemGreen : .systemOrange)
         item.button?.toolTip = checking ? "Verificando SUUR" : (healthy ? "SUUR rodando" : "SUUR parado")
         stateItem.title = checking ? "Verificando SUUR…" : (healthy ? "SUUR rodando\(version.map { " (\($0))" } ?? "")" : "SUUR parado")
