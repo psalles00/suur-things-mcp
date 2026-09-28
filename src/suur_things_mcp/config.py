@@ -261,7 +261,7 @@ def _clean(data: dict) -> dict[str, Any]:
     raw_five = data.get("five_days") if isinstance(data.get("five_days"), dict) else {}
     project_ids = raw_five.get("project_ids") if isinstance(raw_five.get("project_ids"), list) else []
     five_days = {"project_ids": list(dict.fromkeys(str(pid) for pid in project_ids
-                 if isinstance(pid, str) and _SAFE_ID.fullmatch(pid)))[:4],
+                 if isinstance(pid, str) and _SAFE_ID.fullmatch(pid))),
                  "hide_scheduled": bool(raw_five.get("hide_scheduled", True))}
     common = {"priority": priority, "links": link_table, "prefs": prefs,
               "timeblocks": tb, "attachments": att, "priority_levels": plevels,

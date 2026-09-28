@@ -39,6 +39,13 @@
   .iconbtn { border:1px solid var(--divider); background:var(--main-bg); color:var(--text); width:32px;
     height:32px; border-radius:8px; cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center; flex:0 0 32px; }
   .iconbtn:hover { background:var(--row-hover); }
+  .ui-icon { width:15px; height:15px; flex:0 0 15px; display:inline-block; vertical-align:-2px; }
+  .theme-menu { position:absolute; z-index:60; top:40px; right:15px; min-width:166px; padding:5px;
+    border:1px solid var(--divider); border-radius:10px; background:var(--card-bg); box-shadow:0 12px 28px rgba(0,0,0,.16); }
+  .theme-menu button { display:flex; align-items:center; gap:9px; width:100%; border:0; border-radius:7px;
+    padding:8px 10px; background:transparent; color:var(--text); font:inherit; text-align:left; cursor:pointer; }
+  .theme-menu button:hover, .theme-menu button[aria-checked="true"] { background:var(--row-hover); }
+  .theme-menu .theme-check { margin-left:auto; font-size:12px; }
   .views { position:absolute; top:44px; left:0; right:0; bottom:0; display:flex; }
 
   .sidebar { width:272px; flex:0 0 272px; background:var(--side-bg); border-right:1px solid var(--divider);
@@ -136,11 +143,12 @@
   .title { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .meta { display:flex; align-items:center; gap:6px; flex:0 0 auto; }
   .pill { font-size:11px; padding:2px 8px; border:0; background:var(--chip-bg); color:var(--chip-fg); border-radius:11px; white-space:nowrap; }
-  .note-ico { color:var(--muted); font-size:12px; }
+  .note-ico { color:var(--muted); display:inline-flex; align-items:center; }
+  .note-ico svg, .due svg { width:14px; height:14px; }
   .att-ico { color:var(--muted); display:inline-flex; align-items:center; }
   .att-ico svg { width:13px; height:13px; }
-  .due { display:inline-flex; align-items:center; gap:4px; color:var(--red); font-size:12px; white-space:nowrap; }
-  .due .dot { width:9px; height:9px; border-radius:50%; background:var(--red); display:inline-block; }
+  .due { display:inline-flex; align-items:center; color:var(--muted); white-space:nowrap; }
+  .due.overdue { color:var(--red); }
   .empty, .err { color:var(--muted); padding:40px 4px; } .err { color:var(--red); }
   /* content entrance: opacity only (navigation is frequent); silent refresh skips it */
   #content.swap-in { animation: content-in var(--dur-fast) var(--ease-out); }
@@ -203,6 +211,7 @@
   .taskcard.is-done .tc-title { color:var(--muted); text-decoration:line-through; }
   .taskcard .thumb { position:relative; aspect-ratio:16/9; background:var(--col-bg); display:flex; align-items:center; justify-content:center; font-size:26px; overflow:hidden; }
   .taskcard .thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+  .taskcard .thumb .ui-icon { width:30px; height:30px; }
   .taskcard .thumb .play { position:absolute; color:#fff; font-size:34px; text-shadow:0 1px 7px rgba(0,0,0,.65); }
   .taskcard .tc-body { padding:11px 13px 13px; }
   .taskcard .tc-title { font-weight:600; font-size:13.5px; line-height:1.35; }
@@ -289,6 +298,7 @@
   .org-cur { color:var(--text); font-size:13px; font-weight:600; margin-bottom:6px; }
   .org-line { display:flex; gap:8px; align-items:flex-start; padding:3px 0; cursor:pointer; font-size:13px; }
   .org-line input { margin-top:3px; flex:0 0 auto; }
+  .org-line .ui-icon { margin-top:2px; }
   .org-reason { color:var(--muted); font-size:11.5px; margin-top:4px; font-style:italic; }
 
   .col { background:var(--col-bg); border-radius:12px; width:300px; flex:0 0 300px; max-height:100%; display:flex; flex-direction:column; }
@@ -314,6 +324,7 @@
   .cpulse { color:var(--muted); font-size:11px; margin-top:8px; }
   .crepos .repo { font-size:11px; color:var(--muted); border:1px solid var(--pill-border); border-radius:8px; padding:1px 3px 1px 8px; display:inline-flex; align-items:center; gap:1px; }
   .crepos .rb { border:0; background:transparent; cursor:pointer; color:var(--muted); font-size:12px; padding:0 4px; border-radius:5px; line-height:1.6; }
+  .crepos .rb .ui-icon { width:12px; height:12px; vertical-align:-1px; }
   .crepos .rb:hover { background:var(--row-hover); color:var(--text); }
   .crepos .rb.add { border:1px dashed var(--pill-border); border-radius:8px; padding:0 7px; }
   /* project/area list-view repo bar (same chips + pulse as a board card) */
@@ -437,7 +448,7 @@
   /* Five Days is a self-contained workspace; other SUUR views retain their styles. */
   .main.five-mode .main-head, .main.five-mode #filterbar { display:none; }
   .main.five-mode #content { padding:0; overflow:hidden; }
-  .five-shell { --five-accent:#9338df; height:100%; display:flex; flex-direction:column;
+  .five-shell { --five-accent:#9338df; --five-row-height:34px; height:100%; display:flex; flex-direction:column;
     background:#fff; color:#202024; font-family:"Avenir Next",-apple-system,BlinkMacSystemFont,sans-serif; }
   .five-nav { flex:0 0 48px; display:flex; align-items:center; justify-content:flex-end;
     gap:8px; padding:0 24px; color:#696970; }
@@ -446,34 +457,51 @@
     font:inherit; cursor:pointer; padding:6px 9px; border-radius:5px; }
   .five-nav button:hover, .five-toolbar button:hover { background:#eeeef1; }
   .five-nav .five-today { font-size:11px; text-transform:uppercase; letter-spacing:.1em; }
-  .five-scroller { flex:1; min-height:0; overflow-x:auto; display:flex; flex-direction:column; }
+  .five-scroller { flex:1; min-height:0; overflow:hidden; display:flex; flex-direction:column; }
+  .five-days-viewport { flex:1.095 1 0; min-height:250px; overflow-x:auto; overflow-y:hidden; }
+  .five-lists-viewport { flex:.905 1 0; min-height:220px; overflow-x:auto; overflow-y:hidden; background:#f7f8fa;
+    scrollbar-width:none; }
+  .five-lists-viewport:hover { scrollbar-width:thin; scrollbar-color:#b9bbc2 transparent; }
+  .five-lists-viewport::-webkit-scrollbar { height:0; }
+  .five-lists-viewport:hover::-webkit-scrollbar { height:7px; }
+  .five-lists-viewport::-webkit-scrollbar-thumb { background:#b9bbc2; border-radius:7px; }
   .five-days-grid, .five-lists-grid { min-width:1050px; display:grid; grid-template-columns:repeat(5,minmax(0,1fr));
     column-gap:clamp(24px,4vw,80px); padding-left:clamp(30px,3.4vw,68px); padding-right:clamp(30px,2.3vw,46px); }
-  .five-days-grid { flex:1.095 1 0; min-height:250px; overflow-y:auto; padding-top:17px; padding-bottom:20px; }
-  .five-lists-grid { flex:.905 1 0; min-height:220px; overflow-y:auto; background:#f7f8fa;
-    padding-top:44px; padding-bottom:24px; }
-  .five-datecol, .five-listcol { min-width:0; display:flex; flex-direction:column; }
+  .five-days-grid { width:100%; height:100%; padding-top:17px; padding-bottom:20px; }
+  .five-lists-grid { width:100%; height:100%; padding-top:44px; padding-bottom:24px; }
+  .five-lists-grid.is-wide { width:max-content; grid-template-columns:repeat(var(--five-count),var(--five-col-width,312px)); }
+  .five-datecol, .five-listcol { min-width:0; min-height:0; display:flex; flex-direction:column; }
+  .five-datehead { flex:0 0 76px; min-width:0; }
+  .five-listhead { flex:0 0 66px; min-width:0; }
+  .five-col-body { flex:1; min-height:0; display:flex; flex-direction:column; overflow-y:auto;
+    overscroll-behavior:contain; scrollbar-width:none; }
+  .five-col-body:hover { scrollbar-width:thin; scrollbar-color:#b9bbc2 transparent; }
+  .five-col-body::-webkit-scrollbar { width:0; }
+  .five-col-body:hover::-webkit-scrollbar { width:6px; }
+  .five-col-body::-webkit-scrollbar-thumb { background:#b9bbc2; border-radius:6px; }
   .five-date { color:#a1a1a6; font:750 12px/1.1 "Avenir Next",sans-serif;
     letter-spacing:.15em; text-transform:uppercase; }
-  .five-dayname, .five-listname { margin:5px 0 24px; font:700 28px/1.07 "Avenir Next Condensed","Arial Narrow",sans-serif;
-    letter-spacing:-.025em; text-transform:uppercase; }
+  .five-dayname, .five-listname { margin:5px 0 0; font:700 28px/1.07 "Avenir Next Condensed","Arial Narrow",sans-serif;
+    letter-spacing:-.025em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .five-datecol.is-today .five-dayname { color:var(--five-accent); }
-  .five-listname { font-size:27px; margin:0 0 26px; }
+  .five-listname { font-size:27px; margin:0; }
   .five-taskset { flex:0 0 auto; }
-  .five-shell .row { max-width:none; min-height:45px; padding:8px 5px; gap:8px;
-    border-radius:0; border-bottom:1px solid #e6e7e9; font-size:15px; }
+  .five-shell .row { max-width:none; height:var(--five-row-height); min-height:var(--five-row-height);
+    padding:0 5px; gap:7px; border-radius:0; border-bottom:1px solid #e6e7e9; font-size:13px; line-height:1.2; }
   .five-shell .row:hover { background:#eeedf2; }
-  .five-shell .row .box { opacity:.38; width:15px; height:15px; flex-basis:15px; border-radius:4px; }
+  .five-shell .row .box { opacity:.38; width:14px; height:14px; flex-basis:14px; border-radius:4px; }
   .five-shell .row:hover .box, .five-shell .row .box.done,
   .five-shell .row:focus-within .box { opacity:1; }
   .five-shell .row .title { min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
   .five-shell .row .meta { max-width:38%; overflow:hidden; }
   .five-shell .row .pill { display:none; }
   .five-shell .row.is-done .title { text-decoration:line-through; }
-  .five-group { margin:8px 0 4px; padding:9px 12px; border-radius:7px; background:#ebebee;
-    color:#37373c; font:800 11px/1 "Avenir Next",sans-serif; letter-spacing:.08em; text-transform:uppercase; }
+  .five-group { height:var(--five-row-height); min-height:var(--five-row-height); margin:0; padding:0 8px;
+    display:flex; align-items:center; border-bottom:1px solid #e6e7e9; background:#ebebee;
+    color:#37373c; font:800 10px/1 "Avenir Next",sans-serif; letter-spacing:.08em; text-transform:uppercase; }
+  .five-group span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .five-lines { flex:1 0 70px; min-height:70px; background:repeating-linear-gradient(to bottom,
-    transparent 0,transparent 49px,#e9e9eb 50px,#e9e9eb 51px); }
+    transparent 0,transparent 33px,#e9e9eb 33px,#e9e9eb 34px); }
   .five-toolbar { flex:0 0 57px; display:flex; align-items:center; gap:18px;
     border-top:1px solid #ededf0; border-bottom:1px solid #ededf0; padding:0 clamp(30px,3.4vw,68px);
     background:#fff; color:#77777c; white-space:nowrap; }
@@ -499,13 +527,17 @@
   .five-picker-row span { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .five-picker-row button { border:0; background:transparent; color:var(--text); cursor:pointer; font:inherit; }
   html[data-theme="dark"] .five-shell { background:#1b1e23; color:#e7e9ec; }
+  html[data-theme="dark"] .five-shell { color-scheme:dark; }
   html[data-theme="dark"] .five-toolbar { background:#1b1e23; border-color:#34383e; color:#abb0b8; }
-  html[data-theme="dark"] .five-lists-grid { background:#22262b; }
+  html[data-theme="dark"] .five-toolbar .five-tab { color:#e7e9ec; }
+  html[data-theme="dark"] .five-toolbar .five-manage { color:#c6cad0; }
+  html[data-theme="dark"] .five-lists-viewport { background:#22262b; }
   html[data-theme="dark"] .five-shell .row { border-color:#363a41; }
   html[data-theme="dark"] .five-shell .row:hover { background:#30343b; }
-  html[data-theme="dark"] .five-group { background:#333840; color:#e7e9ec; }
+  html[data-theme="dark"] .five-group { background:#333840; color:#e7e9ec; border-color:#363a41; }
+  html[data-theme="dark"] .five-placeholder { border-color:#50545b; color:#b2b7bf; }
   html[data-theme="dark"] .five-lines { background:repeating-linear-gradient(to bottom,
-    transparent 0,transparent 49px,#34383e 50px,#34383e 51px); }
+    transparent 0,transparent 33px,#34383e 33px,#34383e 34px); }
   @media (max-width:1100px) { .five-days-grid,.five-lists-grid { column-gap:28px; } }
 </style>
 </head>
@@ -520,7 +552,7 @@
   <span class="grow"></span>
   <button class="iconbtn" id="add-btn" title="Add to-do or project">＋</button>
   <button class="iconbtn" id="prefs-btn" title="Preferences">⚙</button>
-  <button class="iconbtn" id="theme" title="Toggle light/dark">◐</button>
+  <button class="iconbtn" id="theme" title="Appearance" aria-label="Appearance" aria-haspopup="menu" aria-expanded="false"></button>
 </div>
 <div class="views">
   <aside class="sidebar" id="sidebar">
@@ -544,7 +576,7 @@
         <button class="vt" id="vt-cards">Cards</button>
         <button class="vt" id="vt-timeline">Timeline</button>
       </div>
-      <button class="iconbtn" id="organize-btn" title="Auto-organize this folder with your agent" style="display:none">✨</button>
+      <button class="iconbtn" id="organize-btn" title="Auto-organize this folder with your agent" style="display:none"><svg class="ui-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="m8 1.8.7 2.5 2.5.7-2.5.7L8 8.2l-.7-2.5-2.5-.7 2.5-.7zM12.7 9l.4 1.4 1.4.4-1.4.4-.4 1.4-.4-1.4-1.4-.4 1.4-.4zM3.4 9.5l.5 1.5 1.5.5-1.5.5-.5 1.5-.5-1.5-1.5-.5 1.5-.5z"/></svg></button>
       <button class="iconbtn" id="board-gear" title="Board settings" style="display:none">⚙</button>
       <button class="iconbtn" id="levels-gear" title="Map Things tags to priority levels" style="display:none">⚙</button>
     </div>
@@ -581,11 +613,11 @@
     </div></div>
     <div class="hint warn" id="edit-warn" style="display:none">Read-only: set THINGS_AUTH_TOKEN to edit.</div>
     <div class="ec-foot">
-      <button class="ec-tool" id="tool-when" title="When">📅</button>
-      <button class="ec-tool" id="tool-deadline" title="Deadline">⚑</button>
+      <button class="ec-tool" id="tool-when" title="When"><svg class="ui-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="2.1" y="3.5" width="11.8" height="10.2" rx="1.5"/><path d="M2.2 6.4h11.6M5.1 2v3M10.9 2v3"/></svg></button>
+      <button class="ec-tool" id="tool-deadline" title="Deadline"><svg class="ui-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 14V2.2M3.6 3h8.7l-2.1 3 2.1 3H3.6"/></svg></button>
       <button class="ec-tool" id="tool-checklist" title="Checklist (edit in Things)">☰</button>
-      <button class="ec-tool" id="tool-tags" title="Tags">🏷</button>
-      <button class="ec-tool" id="tool-attach" title="Attach image (Things can't store images — shown here; a file link is added to notes)">📎</button>
+      <button class="ec-tool" id="tool-tags" title="Tags"><svg class="ui-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"><path d="M2.1 2.4h6.7l5 5-6.3 6.3-5.4-5.4z"/><circle cx="5.1" cy="5.2" r=".85"/></svg></button>
+      <button class="ec-tool" id="tool-attach" title="Attach image (Things can't store images; a file link is added to notes)"><svg class="ui-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="m5 8.3 4.4-4.4a2.5 2.5 0 0 1 3.6 3.6L7.1 13.4a3.5 3.5 0 0 1-5-5l5.7-5.7"/></svg></button>
       <span class="spacer"></span>
       <span class="ec-where" id="ec-where" style="display:none"></span>
       <button class="ec-link" id="ec-cancel">Cancel task</button>
@@ -597,7 +629,7 @@
 
 <div class="overlay" id="organize-overlay">
   <div class="panel" style="width:640px">
-    <h2 id="org-title">✨ Organize folder</h2><div class="sub" id="org-sub">Your agent suggests improvements. Nothing is written until you Apply.</div>
+    <h2 id="org-title">Organize folder</h2><div class="sub" id="org-sub">Your agent suggests improvements. Nothing is written until you Apply.</div>
     <div id="org-body"></div>
     <div class="btnrow" id="org-actions" style="display:none">
       <button class="btn primary" id="org-apply">Apply selected</button>
@@ -689,6 +721,17 @@ const SVG={
   priority:`<svg viewBox="0 0 16 16"><g><rect x="2.4" y="2.4" width="4.8" height="4.8" rx="1.2" fill="#e0402b"/><rect x="8.8" y="2.4" width="4.8" height="4.8" rx="1.2" fill="var(--muted)"/><rect x="2.4" y="8.8" width="4.8" height="4.8" rx="1.2" fill="var(--muted)"/><rect x="8.8" y="8.8" width="4.8" height="4.8" rx="1.2" fill="var(--muted)"/></g></svg>`,
   levels:`<svg viewBox="0 0 16 16"><g><rect x="2.4" y="2.6" width="11.2" height="2.3" rx="1.15" fill="#e0402b"/><rect x="2.4" y="6.85" width="8.4" height="2.3" rx="1.15" fill="#d98a1f"/><rect x="2.4" y="11.1" width="5.2" height="2.3" rx="1.15" fill="var(--muted)"/></g></svg>`,
   image:`<svg viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><rect x="2.3" y="3.4" width="11.4" height="9.2" rx="1.6"/><circle cx="5.6" cy="6.6" r="1.05" fill="currentColor" stroke="none"/><path d="M2.9 11.6 6.1 8.7l2.1 1.9 2.4-2.7 2.5 2.7"/></g></svg>`,
+  note:`<svg class="ui-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"><path d="M4 1.9h5.3l2.7 2.7v9a.8.8 0 0 1-.8.8H4a.8.8 0 0 1-.8-.8V2.7a.8.8 0 0 1 .8-.8z"/><path d="M9.2 1.9v2.8H12M5.3 7.6h4.9M5.3 10.1h4.9"/></svg>`,
+  deadline:`<svg class="ui-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 14V2.2M3.6 3h8.7l-2.1 3 2.1 3H3.6"/></svg>`,
+  calendar:`<svg class="ui-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="2.1" y="3.5" width="11.8" height="10.2" rx="1.5"/><path d="M2.2 6.4h11.6M5.1 2v3M10.9 2v3"/></svg>`,
+  tag:`<svg class="ui-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"><path d="M2.1 2.4h6.7l5 5-6.3 6.3-5.4-5.4z"/><circle cx="5.1" cy="5.2" r=".85"/></svg>`,
+  paperclip:`<svg class="ui-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="m5 8.3 4.4-4.4a2.5 2.5 0 0 1 3.6 3.6L7.1 13.4a3.5 3.5 0 0 1-5-5l5.7-5.7"/></svg>`,
+  link:`<svg class="ui-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M6.4 9.6 9.6 6.4M6 5.6l1.2-1.2a3.2 3.2 0 0 1 4.5 4.5l-1.2 1.2M10 10.4l-1.2 1.2a3.2 3.2 0 0 1-4.5-4.5l1.2-1.2"/></svg>`,
+  folder:`<svg class="ui-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"><path d="M1.8 4.2a1 1 0 0 1 1-1h3.4l1.4 1.4h5.6a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H2.8a1 1 0 0 1-1-1z"/></svg>`,
+  edit:`<svg class="ui-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"><path d="m3 11.8 8.6-8.6 1.3 1.3-8.6 8.6-2.2.9zM10.8 4l1.4-1.4a1 1 0 0 1 1.4 1.4l-1.4 1.4"/></svg>`,
+  system:`<svg class="ui-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="1.8" y="2.4" width="12.4" height="9.1" rx="1.3"/><path d="M6 13.8h4M8 11.7v2"/></svg>`,
+  light:`<svg class="ui-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><circle cx="8" cy="8" r="2.6"/><path d="M8 1.2v1.5M8 13.3v1.5M1.2 8h1.5M13.3 8h1.5M3.2 3.2l1.1 1.1M11.7 11.7l1.1 1.1M12.8 3.2l-1.1 1.1M4.3 11.7l-1.1 1.1"/></svg>`,
+  dark:`<svg class="ui-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><path d="M12.9 10.7A5.7 5.7 0 0 1 5.3 3.1a5.7 5.7 0 1 0 7.6 7.6z"/></svg>`,
   board:`<svg viewBox="0 0 16 16"><g fill="var(--muted)"><rect x="2.4" y="3" width="3.1" height="10" rx="1.2"/><rect x="6.45" y="3" width="3.1" height="7" rx="1.2"/><rect x="10.5" y="3" width="3.1" height="9" rx="1.2"/></g></svg>`,
   search:`<svg viewBox="0 0 16 16"><g fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-linecap="round"><circle cx="6.8" cy="6.8" r="4.1"/><path d="M9.9 9.9 14 14"/></g></svg>`,
   info:`<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.4" fill="none" stroke="var(--muted)" stroke-width="1.5"/><circle cx="8" cy="5" r="1" fill="var(--muted)"/><rect x="7.15" y="6.9" width="1.7" height="5" rx="0.85" fill="var(--muted)"/></svg>`,
@@ -781,9 +824,37 @@ function linkify(s){
 }
 function uid(){ return Math.random().toString(36).slice(2,10); }
 
-function applyTheme(t){ document.documentElement.setAttribute("data-theme",t); $("#theme").textContent=t==="dark"?"☀":"☾"; localStorage.setItem("things-theme",t); }
-applyTheme(localStorage.getItem("things-theme") || (matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"));
-$("#theme").onclick=()=>applyTheme(document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark");
+const THEME_MEDIA=matchMedia("(prefers-color-scheme: dark)");
+let THEME_CHOICE=localStorage.getItem("things-theme-choice")||"system";
+if(!["system","light","dark"].includes(THEME_CHOICE)) THEME_CHOICE="system";
+function applyTheme(choice,save=false){
+  THEME_CHOICE=choice;
+  if(save) localStorage.setItem("things-theme-choice",choice);
+  document.documentElement.setAttribute("data-theme",choice==="system"?(THEME_MEDIA.matches?"dark":"light"):choice);
+  document.documentElement.setAttribute("data-theme-choice",choice);
+  const button=$("#theme"), name=choice[0].toUpperCase()+choice.slice(1);
+  button.innerHTML=SVG[choice]; button.title="Appearance: "+name; button.setAttribute("aria-label","Appearance: "+name);
+}
+function closeThemeMenu(){ document.getElementById("theme-menu")?.remove(); $("#theme").setAttribute("aria-expanded","false"); }
+function openThemeMenu(){
+  if(document.getElementById("theme-menu")){ closeThemeMenu(); return; }
+  const menu=document.createElement("div"); menu.id="theme-menu"; menu.className="theme-menu"; menu.setAttribute("role","menu");
+  for(const [choice,label] of [["system","System"],["light","Light"],["dark","Dark"]]){
+    const option=document.createElement("button"); option.type="button"; option.setAttribute("role","menuitemradio");
+    option.setAttribute("aria-checked",String(choice===THEME_CHOICE));
+    option.innerHTML=SVG[choice]+`<span>${label}</span><span class="theme-check">${choice===THEME_CHOICE?"✓":""}</span>`;
+    option.onclick=()=>{ applyTheme(choice,true); closeThemeMenu(); $("#theme").focus(); };
+    menu.appendChild(option);
+  }
+  document.body.appendChild(menu); $("#theme").setAttribute("aria-expanded","true");
+  menu.querySelector("[aria-checked='true']")?.focus();
+}
+applyTheme(THEME_CHOICE);
+THEME_MEDIA.addEventListener("change",()=>{ if(THEME_CHOICE==="system") applyTheme("system"); });
+$("#theme").onclick=e=>{ e.stopPropagation(); openThemeMenu(); };
+document.addEventListener("pointerdown",e=>{ if(!e.target.closest("#theme,#theme-menu")) closeThemeMenu(); });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape" && document.getElementById("theme-menu")){
+  closeThemeMenu(); $("#theme").focus(); } });
 
 function ring(p){ const r=6,c=2*Math.PI*r,off=c*(1-p);
   if(p<=0) return `<svg class="ring" width="16" height="16" viewBox="0 0 16 16"><circle class="ring-bg" cx="8" cy="8" r="6"/></svg>`;
@@ -841,11 +912,11 @@ function ckCommands(){
   out.push({label:"New to-do…", hint:"Create", icon:"", run:()=>{closeCmdk(); openCreate("todo");}});
   out.push({label:"New project…", hint:"Create", icon:"", run:()=>{closeCmdk(); openCreate("project");}});
   out.push({label:"New board", hint:"Create", icon:"", run:()=>{closeCmdk(); newBoard();}});
-  out.push({label:"Organize this list ✨", hint:"Agent", icon:"", run:()=>{ if(SEL){ closeCmdk(); startOrganize(SEL.id,"organize"); } else alert("Open a list first."); }});
-  out.push({label:"Triage Inbox ✨", hint:"Agent", icon:"", run:()=>{ closeCmdk(); startOrganize("inbox","triage"); }});
-  out.push({label:"Calm my Today ✨", hint:"Agent", icon:"", run:()=>{ closeCmdk(); startOrganize("today","calm"); }});
+  out.push({label:"Organize this list", hint:"Agent", icon:SVG.folder, run:()=>{ if(SEL){ closeCmdk(); startOrganize(SEL.id,"organize"); } else alert("Open a list first."); }});
+  out.push({label:"Triage Inbox", hint:"Agent", icon:SVG.inbox, run:()=>{ closeCmdk(); startOrganize("inbox","triage"); }});
+  out.push({label:"Calm my Today", hint:"Agent", icon:SVG.today, run:()=>{ closeCmdk(); startOrganize("today","calm"); }});
   if(SEL && MODE!=="board" && MODE!=="about"){ [["list","List"],["matrix","Matrix"],["levels","Levels"],["cards","Cards"],["timeline","Timeline"]].forEach(([v,l])=>out.push({label:"Switch to "+l+" view", hint:"View", icon:"", run:()=>{closeCmdk(); setListView(v);}})); }
-  out.push({label:"Toggle light / dark", hint:"App", icon:"", run:()=>{ $("#theme").click(); }});
+  out.push({label:"Appearance", hint:"System · Light · Dark", icon:SVG.system, run:()=>{ closeCmdk(); openThemeMenu(); }});
   out.push({label:"Preferences", hint:"App", icon:"", run:()=>{closeCmdk(); openPrefs();}});
   out.push({label:"About · Credits", hint:"App", icon:SVG.info, run:()=>{closeCmdk(); go("#about");}});
   return out;
@@ -858,7 +929,7 @@ function ckRender(q){
   let base;
   if(q){ base = all.filter(c=>fuzzy(q,c.label)); }
   else {  // curated default so the useful commands (incl. the agent ones) are discoverable
-    const want=["New to-do…","New project…","Calm my Today ✨","Triage Inbox ✨","Organize this list ✨","Today","Inbox","Priority Matrix","About · Credits"];
+    const want=["New to-do…","New project…","Calm my Today","Triage Inbox","Organize this list","Today","Inbox","Priority Matrix","About · Credits"];
     const by={}; all.forEach(c=>{ if(!(c.label in by)) by[c.label]=c; });
     base = want.map(l=>by[l]).filter(Boolean);
   }
@@ -1166,7 +1237,7 @@ function taskCardEl(it){
   if(it.link){ title=title.replace(it.link,"").replace(/^\s*watch:?\s*/i,"").trim(); if(!title) title=yt?"YouTube video":it.link; }
   let h="";
   if(yt) h+=`<div class="thumb"><img loading="lazy" src="https://img.youtube.com/vi/${yt}/hqdefault.jpg"><span class="play">▶</span></div>`;
-  else if(it.link) h+=`<div class="thumb">🔗</div>`;
+  else if(it.link) h+=`<div class="thumb">${SVG.link}</div>`;
   h+=`<div class="tc-body"><div class="tc-title">${esc(title||"(untitled)")}</div>`+
      (it.project_title?`<div class="tc-sub">${esc(it.project_title)}</div>`:"")+
      ((it.tags&&it.tags.length)?`<div class="tc-tags">${it.tags.map(t=>`<span class="pill">${esc(t)}</span>`).join("")}</div>`:"")+
@@ -1228,7 +1299,7 @@ function renderRows(){
       if(!items.length) return;
     } else if(items.every(it=>it.status!=="incomplete")){
       const b=document.createElement("div"); b.className="celebrate";
-      b.innerHTML=`Today is done ✨<div class="sub2">Everything checked off — it logs on the next refresh.</div>`;
+      b.innerHTML=`Today is done<div class="sub2">Everything checked off — it logs on the next refresh.</div>`;
       c.insertBefore(b, c.firstChild);
     }
   }
@@ -1246,7 +1317,7 @@ function renderRows(){
 }
 function emptyStateEl(){
   const e=document.createElement("div"); e.className="empty";
-  if(SEL && SEL.id==="inbox") e.innerHTML=`Inbox Zero ✨<div class="sub2" style="margin-top:3px;font-size:12.5px;color:var(--muted)">Nothing to sort.</div>`;
+  if(SEL && SEL.id==="inbox") e.innerHTML=`Inbox Zero<div class="sub2" style="margin-top:3px;font-size:12.5px;color:var(--muted)">Nothing to sort.</div>`;
   else e.textContent="Nothing here.";
   if(!(SEL && (SEL.id==="logbook"||SEL.id==="trash"))){
     const b=document.createElement("button"); b.className="btn"; b.textContent="＋ Add a task";
@@ -1278,9 +1349,11 @@ async function moveToHeading(uuid, heading){
 }
 function metaHtml(it){ let m="";
   if(((CONFIG.attachments||{})[it.uuid]||[]).length) m+=`<span class="att-ico" title="Has an image attachment">${SVG.image}</span>`;
-  if(it.has_notes) m+=`<span class="note-ico">📄</span>`;
+  if(it.has_notes) m+=`<span class="note-ico" title="Notes" aria-label="Notes">${SVG.note}</span>`;
   (it.tags||[]).forEach(t=>m+=`<span class="pill">${esc(t)}</span>`);
-  if(it.deadline){ const od=it.deadline<new Date().toISOString().slice(0,10); m+=`<span class="due">${od?'<span class="dot"></span>':"⚑"} ${it.deadline}</span>`; }
+  if(it.deadline){ const overdue=it.deadline<new Date().toISOString().slice(0,10);
+    const label=(overdue?"Overdue deadline: ":"Deadline: ")+it.deadline;
+    m+=`<span class="due${overdue?" overdue":""}" title="${esc(label)}" aria-label="${esc(label)}">${SVG.deadline}</span>`; }
   return m; }
 function rowEl(it){
   const done=it.status==="completed",cancel=it.status==="canceled";
@@ -1347,7 +1420,7 @@ function boardCardEl(card){
   if((card.repos||[]).length) fetchPulse(card.id, el);
   return el;
 }
-// Repo chips (open in editor/terminal/github) + a "🔗 repos" manage button.
+// Repo chips (open in editor/terminal/github) + a manage button.
 // Shared by board cards and the project/area list-view repo bar.
 function repoChipsHtml(id, kind, title, repos){
   let h="";
@@ -1357,7 +1430,7 @@ function repoChipsHtml(id, kind, title, repos){
       `<button class="rb" title="Open in terminal" data-rb="terminal" data-item="${esc(id)}" data-idx="${i}">❯</button>`+
       (r.github?`<button class="rb" title="Open on GitHub" data-rb="github" data-item="${esc(id)}" data-idx="${i}">↗</button>`:"")+
       `</span>`; });
-  h+=`<button class="rb add" title="Manage repos" data-rb="manage" data-item="${esc(id)}" data-kind="${esc(kind)}" data-title="${esc(title||"")}">🔗 repos</button>`;
+  h+=`<button class="rb add" title="Manage repos" data-rb="manage" data-item="${esc(id)}" data-kind="${esc(kind)}" data-title="${esc(title||"")}">${SVG.link} repos</button>`;
   return h;
 }
 // Repo chips are built inside larger innerHTML strings, so they're handled by one
@@ -1458,7 +1531,7 @@ function renderMatrix(items){
   const unassigned=items.filter(t=>!QUADS.some(q=>q.key===pr[t.uuid]));
   pool.innerHTML=`<div class="col-head"><span>Unsorted</span><span>${unassigned.length}</span></div>`;
   const pc=document.createElement("div"); pc.className="col-cards";
-  if(!unassigned.length) pc.innerHTML=`<div class="empty" style="padding:16px 6px">All sorted 🎉</div>`;
+  if(!unassigned.length) pc.innerHTML=`<div class="empty" style="padding:16px 6px">All sorted</div>`;
   unassigned.forEach(t=>pc.appendChild(priCardEl(t))); pool.appendChild(pc); dropZone(pool,null,items); wrap.appendChild(pool);
   const mx=document.createElement("div"); mx.className="matrix";
   for(const q of QUADS){
@@ -1540,7 +1613,7 @@ function renderLevelBands(){
   pool.innerHTML=`<div class="col-head"><span>Unsorted</span><span>${unsorted.length}</span></div>`;
   const pc=document.createElement("div"); pc.className="col-cards";
   if(!anyMapped) pc.innerHTML=`<div class="lvl-mapnote">No tags mapped yet. Click ⚙ to map your Things tags to P1–P4.</div>`;
-  else if(!unsorted.length) pc.innerHTML=`<div class="empty" style="padding:16px 6px">All ranked 🎉</div>`;
+  else if(!unsorted.length) pc.innerHTML=`<div class="empty" style="padding:16px 6px">All ranked</div>`;
   unsorted.forEach(t=>pc.appendChild(priCardEl(t))); pool.appendChild(pc); levelDrop(pool,-1); wrap.appendChild(pool);
   const bands=document.createElement("div"); bands.className="levels";
   L.forEach((lv,i)=>{
@@ -1611,7 +1684,7 @@ function renderTimeline(items){
   pool.innerHTML=`<div class="col-head"><span>Unscheduled</span><span>${unscheduled.length}</span></div>`+
     `<div class="tl-durbar">New block <span class="durtog"></span> min</div>`;
   const pc=document.createElement("div"); pc.className="col-cards";
-  if(!unscheduled.length) pc.innerHTML=`<div class="empty" style="padding:14px 6px">All slotted 🎉</div>`;
+  if(!unscheduled.length) pc.innerHTML=`<div class="empty" style="padding:14px 6px">All slotted</div>`;
   unscheduled.forEach(t=>pc.appendChild(priCardEl(t))); pool.appendChild(pc);
   pool.addEventListener("dragover",e=>{ e.preventDefault(); pool.classList.add("drop"); });
   pool.addEventListener("dragleave",()=>pool.classList.remove("drop"));
@@ -1765,14 +1838,14 @@ function updatePills(){
     p.onclick=()=>toggleEditor("ed-tags",$("#tool-tags")); box.appendChild(p);
   });
   // create mode: dashed preview pills for what the title's shorthand will become
-  // ("buy milk tomorrow #errand" → 📅 tomorrow, # errand) so the parse is trusted
+  // ("buy milk tomorrow #errand" → tomorrow, # errand) so the parse is trusted
   // before Add is pressed.
   if(EDIT_NEW && EDIT_KIND==="todo"){
     const parsed=parseNL($("#f-title").value.trim());
     const tagsNow=$("#f-tags").value.split(",").map(s=>s.trim()).filter(Boolean);
     if(parsed.when && !$("#f-when").value.trim()){
       const el=document.createElement("span"); el.className="ec-pill parsed";
-      el.textContent="📅 "+parsed.when; el.title="Parsed from the title"; box.appendChild(el);
+      el.innerHTML=SVG.calendar+" "+esc(parsed.when); el.title="Parsed from the title"; box.appendChild(el);
     }
     parsed.tags.filter(t=>!tagsNow.includes(t)).forEach(t=>{
       const el=document.createElement("span"); el.className="ec-pill parsed";
@@ -2001,9 +2074,9 @@ async function startOrganize(folderId, workflow){
   const r=await postJSON("/api/organize", {folder_id:folderId, workflow});
   if(!r.ok){ alert("Organize: "+(r.error||"failed")); return; }
   openOverlay("organize-overlay");
-  const meta=({organize:["✨ Organize folder","Cleaner titles, notes, and tags — review before anything is written."],
-               triage:["📥 Triage Inbox","Proposed home, tags, and date per item — review before anything is written."],
-               calm:["🧘 Calm Today","Keep the vital few as Today; defer the rest — review before anything is written."]})[workflow]||["✨ Organize","Review before anything is written."];
+  const meta=({organize:["Organize folder","Cleaner titles, notes, and tags — review before anything is written."],
+               triage:["Triage Inbox","Proposed home, tags, and date per item — review before anything is written."],
+               calm:["Calm Today","Keep the vital few as Today; defer the rest — review before anything is written."]})[workflow]||["Organize","Review before anything is written."];
   $("#org-title").textContent=meta[0]; $("#org-sub").textContent=meta[1];
   $("#org-actions").style.display="none";
   $("#org-body").innerHTML=`<div class="empty">Running ${esc(r.agent||"agent")} on ${r.count} task(s)… (up to ~2 min, costs a little on your agent account)</div>`;
@@ -2021,15 +2094,15 @@ function pollOrganize(jobId, tries){
 function renderSuggestions(){
   const body=$("#org-body"); body.innerHTML="";
   const changed=ORG_SUG.filter(s=>s.suggested_title||s.append_notes||(s.tags&&s.tags.length)||s.when||s.dest);
-  if(!changed.length){ body.innerHTML=`<div class="empty">No suggestions — looks tidy. 🎉</div>`; $("#org-actions").style.display="none"; return; }
+  if(!changed.length){ body.innerHTML=`<div class="empty">No suggestions. Looks tidy.</div>`; $("#org-actions").style.display="none"; return; }
   for(const s of changed){
     const row=document.createElement("div"); row.className="org-row"; row.dataset.uuid=s.uuid;
     let h=`<div class="org-cur">${esc(s.title || LAST_ITEMS[s.uuid] || "(task)")}</div>`;
-    if(s.suggested_title) h+=`<label class="org-line"><input type="checkbox" class="acc-title" checked data-val="${esc(s.suggested_title)}"> ✏️ ${esc(s.suggested_title)}</label>`;
-    if(s.dest) h+=`<label class="org-line"><input type="checkbox" class="acc-dest" checked data-val="${esc(s.dest)}"> 📁 → ${esc(s.dest)}</label>`;
-    if(s.when) h+=`<label class="org-line"><input type="checkbox" class="acc-when" checked data-val="${esc(s.when)}"> 📅 ${esc(s.when)}</label>`;
-    if(s.append_notes) h+=`<label class="org-line"><input type="checkbox" class="acc-notes" checked data-val="${esc(s.append_notes)}"> 📝 ${esc(s.append_notes)}</label>`;
-    if(s.tags&&s.tags.length) h+=`<label class="org-line"><input type="checkbox" class="acc-tags" checked data-val="${esc(JSON.stringify(s.tags))}"> 🏷 ${s.tags.map(t=>`<span class="pill">${esc(t)}</span>`).join(" ")}</label>`;
+    if(s.suggested_title) h+=`<label class="org-line"><input type="checkbox" class="acc-title" checked data-val="${esc(s.suggested_title)}"> ${SVG.edit} ${esc(s.suggested_title)}</label>`;
+    if(s.dest) h+=`<label class="org-line"><input type="checkbox" class="acc-dest" checked data-val="${esc(s.dest)}"> ${SVG.folder} → ${esc(s.dest)}</label>`;
+    if(s.when) h+=`<label class="org-line"><input type="checkbox" class="acc-when" checked data-val="${esc(s.when)}"> ${SVG.calendar} ${esc(s.when)}</label>`;
+    if(s.append_notes) h+=`<label class="org-line"><input type="checkbox" class="acc-notes" checked data-val="${esc(s.append_notes)}"> ${SVG.note} ${esc(s.append_notes)}</label>`;
+    if(s.tags&&s.tags.length) h+=`<label class="org-line"><input type="checkbox" class="acc-tags" checked data-val="${esc(JSON.stringify(s.tags))}"> ${SVG.tag} ${s.tags.map(t=>`<span class="pill">${esc(t)}</span>`).join(" ")}</label>`;
     if(s.reason) h+=`<div class="org-reason">${esc(s.reason)}</div>`;
     row.innerHTML=h; body.appendChild(row);
   }
@@ -2182,6 +2255,11 @@ function fiveProject(id){
   return (SIDEBAR?.arealess||[]).find(p=>p.uuid===id)||null;
 }
 function fiveAllProjects(){ return (SIDEBAR?.areas||[]).flatMap(a=>a.projects).concat(SIDEBAR?.arealess||[]); }
+function fiveUpdateColumnWidth(){
+  const day=$("#five-days-grid .five-datecol"), lists=$("#five-lists-grid");
+  if(day && lists) lists.style.setProperty("--five-col-width",day.getBoundingClientRect().width+"px");
+}
+window.addEventListener("resize",()=>{ if(FIVE_ACTIVE) fiveUpdateColumnWidth(); });
 function fiveShell(){
   const c=$("#content"); c.classList.remove("swap-in");
   c.innerHTML=`<div class="five-shell"><nav class="five-nav" aria-label="Five-day navigation">
@@ -2191,9 +2269,9 @@ function fiveShell(){
     <button type="button" class="five-today" id="five-reset">Today</button>
     <button type="button" data-shift="1" aria-label="Next day">›</button>
     <button type="button" data-shift="5" aria-label="Forward five days">»</button></nav>
-    <div class="five-scroller"><div class="five-days-grid" id="five-days-grid"></div>
+    <div class="five-scroller"><div class="five-days-viewport"><div class="five-days-grid" id="five-days-grid"></div></div>
     <div class="five-toolbar" id="five-toolbar"></div>
-    <div class="five-lists-grid" id="five-lists-grid"></div></div></div>`;
+    <div class="five-lists-viewport"><div class="five-lists-grid" id="five-lists-grid"></div></div></div></div>`;
   c.querySelectorAll("[data-shift]").forEach(b=>b.onclick=()=>fiveShift(Number(b.dataset.shift)));
   $("#five-reset").onclick=()=>{ FIVE_START=fiveNowISO(); renderFiveDays(); };
 }
@@ -2209,12 +2287,15 @@ async function renderFiveDays(){
   if(request!==CONTENT_REQUEST || !FIVE_ACTIVE) return;
   FIVE_DATA.days=days.ok?days.days:[]; FIVE_DATA.dayError=days.ok?"":days.error||"Could not read dates";
   FIVE_TODAY=days.today||fiveNowISO(); fivePaint();
-  for(const id of fivePrefs().project_ids){
-    getJSON("/api/items?id="+encodeURIComponent(id)).then(data=>{
+  const ids=[...fivePrefs().project_ids]; let next=0;
+  const loadNext=async()=>{
+    while(next<ids.length && request===CONTENT_REQUEST && FIVE_ACTIVE){
+      const id=ids[next++], data=await getJSON("/api/items?id="+encodeURIComponent(id));
       if(request!==CONTENT_REQUEST || !FIVE_ACTIVE) return;
       FIVE_DATA.lists[id]=data; fivePaint();
-    });
-  }
+    }
+  };
+  for(let i=0;i<Math.min(4,ids.length);i++) loadNext();
 }
 function fiveCollect(){
   const byId=new Map();
@@ -2230,17 +2311,29 @@ function fiveAppendRows(col,items,key,source){
   const groups=key==="heading_title"?groupConsecutive(items,key):groupBy(items,key);
   for(const group of groups){
     if(group.key){ const h=document.createElement("div"); h.className="five-group";
-      h.textContent=group.key; if(key==="heading_title") h.dataset.fiveHeading=group.key;
+      const title=document.createElement("span"); title.textContent=group.key; title.title=group.key; h.appendChild(title);
+      if(key==="heading_title") h.dataset.fiveHeading=group.key;
       col.appendChild(h); }
     for(const it of group.items){ const row=rowEl(it); row.draggable=false;
       if(it.status==="incomplete") fiveAttachDrag(row,it,source);
       col.appendChild(row); }
   }
 }
+let FIVE_PAINT_PENDING=false;
 function fivePaint(){
   if(!FIVE_ACTIVE || !$("#five-days-grid")) return;
+  if(document.body.classList.contains("dragging-task")){
+    if(!FIVE_PAINT_PENDING){ FIVE_PAINT_PENDING=true;
+      const afterDrag=()=>{ window.removeEventListener("pointerup",afterDrag); window.removeEventListener("pointercancel",afterDrag);
+        FIVE_PAINT_PENDING=false; requestAnimationFrame(fivePaint); };
+      window.addEventListener("pointerup",afterDrag); window.addEventListener("pointercancel",afterDrag); }
+    return;
+  }
   const dg=$("#five-days-grid"), lg=$("#five-lists-grid");
-  const ds=dg.scrollTop, ls=lg.scrollTop; dg.replaceChildren(); lg.replaceChildren(); fiveCollect();
+  const scrolls=new Map([...document.querySelectorAll(".five-col-body[data-five-scroll]")].map(el=>
+    [el.dataset.fiveScroll,el.scrollTop]));
+  const daysX=dg.parentElement.scrollLeft, listsX=lg.parentElement.scrollLeft;
+  dg.replaceChildren(); lg.replaceChildren(); fiveCollect();
   const today=FIVE_TODAY||fiveNowISO();
   for(let i=0;i<5;i++){
     const d=fiveDate(FIVE_START); d.setDate(d.getDate()+i);
@@ -2248,37 +2341,50 @@ function fivePaint(){
     const col=document.createElement("section"); col.className="five-datecol"+(iso===today?" is-today":""); col.dataset.fiveDate=iso;
     const label=d.toLocaleDateString("en-US",{day:"2-digit",month:"short",year:"numeric"}).toUpperCase();
     const name=d.toLocaleDateString("en-US",{weekday:"long"}).toUpperCase();
-    col.innerHTML=`<div class="five-date">${esc(label)}</div><h2 class="five-dayname">${esc(name)}</h2>`;
+    const head=document.createElement("div"); head.className="five-datehead";
+    head.innerHTML=`<div class="five-date">${esc(label)}</div><h2 class="five-dayname">${esc(name)}</h2>`;
+    const body=document.createElement("div"); body.className="five-col-body"; body.dataset.fiveScroll="date:"+iso;
     const items=FIVE_DATA.days.find(day=>day.date===iso)?.items||[];
-    fiveAppendRows(col,items,"project_title",{kind:"date",date:iso});
-    if(FIVE_DATA.dayError && i===0){ const e=document.createElement("div"); e.className="five-error"; e.textContent=FIVE_DATA.dayError; col.appendChild(e); }
-    const lines=document.createElement("div"); lines.className="five-lines"; col.appendChild(lines); dg.appendChild(col);
+    fiveAppendRows(body,items,"project_title",{kind:"date",date:iso});
+    if(FIVE_DATA.dayError && i===0){ const e=document.createElement("div"); e.className="five-error"; e.textContent=FIVE_DATA.dayError; body.appendChild(e); }
+    const lines=document.createElement("div"); lines.className="five-lines"; body.appendChild(lines);
+    col.append(head,body); dg.appendChild(col);
   }
   const prefs=fivePrefs(), bar=$("#five-toolbar");
-  bar.innerHTML=`<span class="five-tab">Lists</span><span class="five-count">${prefs.project_ids.length} / 4</span>
+  bar.innerHTML=`<span class="five-tab">Lists</span><span class="five-count">${prefs.project_ids.length} selected</span>
     <span class="five-spacer"></span><label class="five-filter"><input type="checkbox" id="five-hide" ${prefs.hide_scheduled?"checked":""}>Hide scheduled</label>
     <button type="button" class="five-manage" id="five-manage">＋ Choose projects</button>`;
   $("#five-hide").onchange=e=>fiveSavePrefs({...prefs,hide_scheduled:e.target.checked});
   $("#five-manage").onclick=fiveOpenPicker;
-  for(let i=0;i<4;i++){
+  const showManageSlot=prefs.project_ids.length<5, slots=showManageSlot?4:prefs.project_ids.length;
+  lg.style.setProperty("--five-count",String(Math.max(5,prefs.project_ids.length)));
+  lg.classList.toggle("is-wide",prefs.project_ids.length>5);
+  for(let i=0;i<slots;i++){
     const id=prefs.project_ids[i], col=document.createElement("section"); col.className="five-listcol";
     if(id){ col.dataset.fiveProject=id; const p=fiveProject(id), data=FIVE_DATA.lists[id];
-      const title=document.createElement("h2"); title.className="five-listname"; title.textContent=p?.title||"Project unavailable"; col.appendChild(title);
-      if(data && !data.ok){ const e=document.createElement("div"); e.className="five-error"; e.textContent=data.error||"Could not read project"; col.appendChild(e); }
+      const head=document.createElement("div"); head.className="five-listhead";
+      const title=document.createElement("h2"); title.className="five-listname"; title.textContent=p?.title||"Project unavailable";
+      title.title=title.textContent; head.appendChild(title); col.appendChild(head);
+      const body=document.createElement("div"); body.className="five-col-body"; body.dataset.fiveScroll="project:"+id;
+      if(data && !data.ok){ const e=document.createElement("div"); e.className="five-error"; e.textContent=data.error||"Could not read project"; body.appendChild(e); }
       else if(data){ const items=(data.items||[]).filter(it=>!prefs.hide_scheduled || !it.start_date);
-        fiveAppendRows(col,items,"heading_title",{kind:"project",id});
-        if(!items.length){ const e=document.createElement("div"); e.className="five-empty"; e.textContent="No unscheduled tasks"; col.appendChild(e); }
-        if(data.order_synced===false){ const e=document.createElement("div"); e.className="five-error"; e.textContent="Native order unavailable; precise drops are disabled."; col.appendChild(e); }
-      } else { const e=document.createElement("div"); e.className="five-empty"; e.textContent="Loading…"; col.appendChild(e); }
-      const lines=document.createElement("div"); lines.className="five-lines"; col.appendChild(lines);
+        fiveAppendRows(body,items,"heading_title",{kind:"project",id});
+        if(!items.length){ const e=document.createElement("div"); e.className="five-empty"; e.textContent="No unscheduled tasks"; body.appendChild(e); }
+        if(data.order_synced===false){ const e=document.createElement("div"); e.className="five-error"; e.textContent="Native order unavailable; precise drops are disabled."; body.appendChild(e); }
+      } else { const e=document.createElement("div"); e.className="five-empty"; e.textContent="Loading…"; body.appendChild(e); }
+      const lines=document.createElement("div"); lines.className="five-lines"; body.appendChild(lines);
+      col.appendChild(body);
     } else { const b=document.createElement("button"); b.className="five-placeholder"; b.textContent="＋ CHOOSE A PROJECT";
       b.onclick=fiveOpenPicker; col.appendChild(b); }
     lg.appendChild(col);
   }
-  const manage=document.createElement("section"); manage.className="five-listcol";
-  const b=document.createElement("button"); b.className="five-placeholder"; b.textContent=prefs.project_ids.length?"＋ MANAGE LISTS":"＋ ADD LIST";
-  b.onclick=fiveOpenPicker; manage.appendChild(b); lg.appendChild(manage);
-  dg.scrollTop=ds; lg.scrollTop=ls;
+  if(showManageSlot){ const manage=document.createElement("section"); manage.className="five-listcol";
+    const b=document.createElement("button"); b.className="five-placeholder"; b.textContent=prefs.project_ids.length?"＋ MANAGE LISTS":"＋ ADD LIST";
+    b.onclick=fiveOpenPicker; manage.appendChild(b); lg.appendChild(manage); }
+  fiveUpdateColumnWidth();
+  document.querySelectorAll(".five-col-body[data-five-scroll]").forEach(el=>{
+    el.scrollTop=scrolls.get(el.dataset.fiveScroll)||0; });
+  dg.parentElement.scrollLeft=daysX; lg.parentElement.scrollLeft=listsX;
 }
 async function fiveSavePrefs(next){
   const r=await postJSON("/api/config",{five_days:next});
@@ -2289,7 +2395,7 @@ function fiveOpenPicker(){
   document.getElementById("five-picker-overlay")?.remove();
   const overlay=document.createElement("div"); overlay.className="overlay show"; overlay.id="five-picker-overlay";
   const panel=document.createElement("div"); panel.className="panel five-picker";
-  panel.innerHTML=`<div class="panel-head"><h2>Choose up to four projects</h2><button class="btn ghost" id="five-picker-close">✕</button></div>
+  panel.innerHTML=`<div class="panel-head"><h2>Choose projects</h2><button class="btn ghost" id="five-picker-close">✕</button></div>
     <input class="field" id="five-picker-search" placeholder="Search projects" aria-label="Search projects">
     <div class="five-picker-list" id="five-picker-list"></div>`;
   overlay.appendChild(panel); document.body.appendChild(overlay);
@@ -2302,7 +2408,6 @@ function fiveOpenPicker(){
     const projects=fiveAllProjects().filter(p=>p.title.toLocaleLowerCase().includes(query));
     for(const p of projects){ const row=document.createElement("div"); row.className="five-picker-row";
       const check=document.createElement("input"); check.type="checkbox"; check.checked=selected.includes(p.uuid);
-      check.disabled=!check.checked && selected.length>=4;
       check.onchange=async()=>{ const ids=check.checked?[...selected,p.uuid]:selected.filter(id=>id!==p.uuid);
         await fiveSavePrefs({...fivePrefs(),project_ids:ids}); draw(); };
       const label=document.createElement("span"); label.textContent=p.title; row.append(check,label);
