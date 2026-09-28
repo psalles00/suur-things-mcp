@@ -1,7 +1,7 @@
 [project]
 name = "suur-things-mcp"
 dynamic = ["version"]
-description = "A safe, fast MCP server for the Things 3 task manager (Cultured Code) on macOS — reads from the local SQLite database, writes only through the official Things URL Scheme."
+description = "A local Things 3 MCP server and dashboard with read-only database access, URL Scheme writes, and experimental native task ordering."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -17,7 +17,8 @@ classifiers = [
     "Topic :: Office/Business :: Scheduling",
 ]
 dependencies = [
-    "mcp>=1.2.0",
+    # This code uses the FastMCP API from SDK v1; MCP SDK v2 removed it.
+    "mcp>=1.2.0,<2",
     "things.py>=0.0.15",
     # starlette + uvicorn ship transitively with mcp; declared explicitly
     # because the dashboard imports them directly.

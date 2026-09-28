@@ -12,6 +12,8 @@ projects. The main panel shows whatever you select.
 Project-stage placement and priority quadrants are browser-side overlays (stored
 in board.json, never written to Things), so dragging needs no auth token. Editing
 a task's fields writes to Things via the URL Scheme and needs THINGS_AUTH_TOKEN.
+Exact Inbox/project task ordering uses Things' undocumented AppleScript reorder
+command, with a native readback before the dashboard reports success.
 
 Run:
   - `suur-things-mcp dashboard`  → foreground (CLI), opens your browser
@@ -48,6 +50,7 @@ from starlette.routing import Route
 
 from . import __version__, reads
 from . import config as boardcfg
+from . import native_order
 from . import organize as organizer
 from .urlscheme import ThingsURLError, execute
 
@@ -57,6 +60,7 @@ _ORGANIZE_TTL = 1800  # evict finished jobs after 30 min
 # Guards the dedupe / global-cap / insert check-then-act, which runs in a
 # threadpool worker and races against the background _work() thread's updates.
 _ORGANIZE_LOCK = threading.Lock()
+_ORDER_LOCK = asyncio.Lock()
 
 _ALLOWED_HOSTS = {"127.0.0.1", "localhost"}
 _GITHUB_SLUG_RE = re.compile(r"^[\w.-]+/[\w.-]+$")
@@ -204,6 +208,17 @@ async def _items(request: Request) -> JSONResponse:
         # for that area (per-area browser pref). Ignored for non-area lists.
         rollup = boardcfg.area_rollup(list_id)
         data = await run_in_threadpool(lambda: reads.list_items(list_id, rollup=rollup))
+        if list_id == "inbox" or data.get("kind") == "project":
+            try:
+                ids = await run_in_threadpool(lambda: native_order.native_ids(list_id))
+                positions = {item_id: index for index, item_id in enumerate(ids)}
+                if any(item["uuid"] not in positions for item in data["items"]):
+                    raise native_order.NativeOrderError("Things order and database disagree. Refresh after sync.")
+                data["items"].sort(key=lambda item: positions.get(item["uuid"], len(ids)))
+                data["order_synced"] = True
+            except native_order.NativeOrderError as exc:
+                data["order_synced"] = False
+                data["order_error"] = str(exc)
         return JSONResponse({"ok": True, **data})
     except Exception as exc:  # noqa: BLE001
         return JSONResponse({"ok": False, "error": str(exc), "items": []})
@@ -396,12 +411,33 @@ async def _add(request: Request) -> JSONResponse:
     title = (body.get("title") or "").strip()
     if not title:
         return JSONResponse({"ok": False, "error": "missing title"})
+    placement = body.get("placement")
+    if placement is not None:
+        if kind != "todo" or not isinstance(placement, dict):
+            return JSONResponse({"ok": False, "error": "invalid placement"}, status_code=400)
+        list_id = placement.get("list_id")
+        target_id = placement.get("target_id")
+        if (not isinstance(list_id, str) or not isinstance(target_id, str)
+                or not isinstance(placement.get("before"), bool)
+                or body.get("list_id") not in (None, list_id)):
+            return JSONResponse({"ok": False, "error": "invalid placement"}, status_code=400)
+        try:
+            targets = await run_in_threadpool(lambda: native_order._tasks(list_id))
+            target = next((t for t in targets if t["uuid"] == target_id), None)
+            if target is None:
+                raise native_order.NativeOrderError("Target task is no longer in Things. Refresh the list.")
+            if list_id != "inbox":
+                body["list_id"] = list_id
+                if target.get("heading"):
+                    body["heading_id"] = target["heading"]
+        except native_order.NativeOrderError as exc:
+            return JSONResponse({"ok": False, "error": str(exc)}, status_code=409)
     try:
         notes = (body.get("notes") or "").strip()
         # When the client staged an image, it needs the new item's UUID to attach it.
         # The URL Scheme doesn't return it, so snapshot matching titles, create, then
         # poll for the one that's new. Skipped unless `resolve` is set (avoids the poll).
-        resolve = bool(body.get("resolve"))
+        resolve = bool(body.get("resolve")) or placement is not None
         # find_by_exact_title is an exact-match single-column read (~3ms) — run it
         # INLINE, not via run_in_threadpool. Through the threadpool it would queue
         # behind the page's in-flight reads/pulse (git/gh can hold threads for
@@ -427,6 +463,8 @@ async def _add(request: Request) -> JSONResponse:
                 params["tags"] = ",".join(_strlist(body.get("tags")))
             if body.get("list_id"):
                 params["list-id"] = body["list_id"]
+            if body.get("heading_id"):
+                params["heading-id"] = body["heading_id"]
             await run_in_threadpool(lambda: execute("add", params))
         new_uuid = None
         if resolve:
@@ -434,12 +472,48 @@ async def _add(request: Request) -> JSONResponse:
                 await asyncio.sleep(0.15)
                 matches = reads.find_by_exact_title(title)   # inline (~3ms); never threadpool-starved
                 cands = [t for t in matches if t["uuid"] not in before]
+                if placement is not None and cands:
+                    # The URL Scheme does not return an ID. Never reorder a
+                    # same-title task created elsewhere at the same time.
+                    destination = (reads.inbox() if list_id == "inbox"
+                                   else reads.todos(project_uuid=list_id))
+                    destination_ids = {t["uuid"] for t in destination}
+                    cands = [t for t in cands if t["uuid"] in destination_ids]
+                    if len(cands) > 1:
+                        break  # ambiguous: task exists, but exact placement must fail safely
                 if cands:
                     new_uuid = max(cands, key=lambda t: t.get("created") or 0)["uuid"]
                     break
+        if placement is not None:
+            if not new_uuid:
+                return JSONResponse({"ok": True, "uuid": None, "positioned": False,
+                                     "error": "Task created, but Things did not expose its ID to confirm its position."})
+            try:
+                async with _ORDER_LOCK:
+                    await run_in_threadpool(lambda: native_order.reorder(
+                        list_id, new_uuid, target_id, placement["before"]))
+            except native_order.NativeOrderError as exc:
+                return JSONResponse({"ok": True, "uuid": new_uuid, "positioned": False,
+                                     "error": f"Task created, but exact placement failed: {exc}"})
+            return JSONResponse({"ok": True, "uuid": new_uuid, "positioned": True})
         return JSONResponse({"ok": True, "uuid": new_uuid})
     except ThingsURLError as exc:
         return JSONResponse({"ok": False, "error": str(exc)})
+
+
+async def _reorder(request: Request) -> JSONResponse:
+    body = await _json_body(request)
+    if body is None or not isinstance(body.get("before"), bool):
+        return JSONResponse({"ok": False, "error": "invalid reorder request"}, status_code=400)
+    list_id, moved, target = (body.get(k) for k in ("list_id", "moved_id", "target_id"))
+    if not all(isinstance(value, str) for value in (list_id, moved, target)):
+        return JSONResponse({"ok": False, "error": "invalid reorder request"}, status_code=400)
+    try:
+        async with _ORDER_LOCK:
+            order = await run_in_threadpool(lambda: native_order.reorder(list_id, moved, target, body["before"]))
+        return JSONResponse({"ok": True, "order": order})
+    except native_order.NativeOrderError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=409)
 
 
 async def _rename(request: Request) -> JSONResponse:
@@ -696,6 +770,7 @@ def create_app(port: int = DEFAULT_PORT) -> Starlette:
             Route("/api/update", _update, methods=["POST"]),
             Route("/api/rename", _rename, methods=["POST"]),
             Route("/api/add", _add, methods=["POST"]),
+            Route("/api/reorder", _reorder, methods=["POST"]),
             Route("/api/open", _open, methods=["POST"]),
             Route("/api/attachment", _attachment),
             Route("/api/attach", _attach, methods=["POST"]),
@@ -807,13 +882,10 @@ def _service_plist_path() -> str:
 
 
 def _service_command() -> list[str]:
-    """The command the service runs. Prefer `uvx` (a stable binary that resolves
-    the latest installed release each start); fall back to the current
-    interpreter, whose path may be an ephemeral uvx env — fine for uv tool /
-    pipx / venv installs."""
-    uvx = shutil.which("uvx")
-    if uvx:
-        return [uvx, "suur-things-mcp", "dashboard", "--no-open"]
+    """Pin the login service to this installed copy, including local patches.
+
+    Resolving through uvx would silently replace this fork with PyPI at login.
+    """
     import sys
 
     return [sys.executable, "-m", "suur_things_mcp", "dashboard", "--no-open"]

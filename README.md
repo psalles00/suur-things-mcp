@@ -26,17 +26,17 @@ Now ask your agent **"What should I work on today?"** — it reads your real Thi
 Two data paths, deliberately split:
 
 - **Reads** come straight from the local Things SQLite database — instant and complete: Today, Upcoming, Inbox, Anytime, Someday, Logbook, Trash, full-text search, projects, areas, tags, and full item detail.
-- **Writes** go *only* through the official [Things URL Scheme](https://culturedcode.com/things/support/articles/2803573/) — add to-dos/projects, update, complete, cancel, reschedule, move between projects, append checklist items.
+- **Field writes** use the official [Things URL Scheme](https://culturedcode.com/things/support/articles/2803573/). This local fork also uses an undocumented Things AppleScript command for exact task ordering in Inbox and projects.
 
-**Why this matters:** Cultured Code's own [AI-integration guidance](https://culturedcode.com/things/support/articles/5510170/) is blunt — *writing directly to the Things database is unsafe and can corrupt it.* They endorse the URL Scheme as the safe automation path. This server follows that exactly: it **reads** the DB read-only and **never writes** to it. Every mutation is a `things:///` URL, the same mechanism Things documents for Shortcuts and AppleScript.
+**Why this matters:** Cultured Code's [AI-integration guidance](https://culturedcode.com/things/support/articles/5510170/) says direct database writes are unsafe. This fork never writes to SQLite. Exact task ordering is experimental because its AppleScript command is undocumented and could change in a Things update.
 
-So an agent can't corrupt your database through this server even if it tries. The worst a write can do is what the URL Scheme itself allows.
+The dashboard accepts task reordering only within one heading, sends the full native order to Things, then reads it back. If Things does not confirm the result, the dashboard reports an error. Dragging the Magic Plus creates a task through the URL Scheme before positioning it; if positioning fails, the task remains created and the dashboard says so.
 
 > **Privacy:** an agent connected to this server can read your to-do and note content, which is then sent to whatever model you're using. Review your agent's privacy policy. Nothing here phones home; there's no telemetry and no bundled LLM.
 
 ### Why not direct DB writes?
 
-Because Cultured Code says not to. Their [AI-integration guidance](https://culturedcode.com/things/support/articles/5510170/) states plainly that writing to the Things SQLite database directly is unsafe and can corrupt it, and they point automation at the URL Scheme instead. So this server reads the database read-only and routes every change through `things:///` URLs — the same path Things documents for Shortcuts and AppleScript. The upside for you: an agent connected here physically cannot corrupt your Things data, no matter what it does.
+Because Cultured Code says direct SQLite writes are unsafe. Reads use read-only connections; field changes use `things:///` URLs. The dashboard's exact-order feature is the sole exception to URL-only writes and calls Things through AppleScript.
 
 ---
 
@@ -60,11 +60,13 @@ Because Cultured Code says not to. Their [AI-integration guidance](https://cultu
 **Capture, find & tidy**
 - ⌘ **Command palette (⌘K)** — jump to any list/project/board, search tasks, create, switch view, and act on a task (complete / reschedule / move) — all keyboard-only.
 - ➕ **Natural-language quick-add** — type `buy milk tomorrow #errand` and it's parsed into a real to-do.
+- ↕ **Native task order (local fork)** — in a project or Inbox, drag a task beside another task in the same heading, or drag the top-right Plus onto a row to create there. The panel reads the order back from Things. This uses an undocumented AppleScript command and may stop working after a Things update.
+- ◉ **Optional macOS menu bar utility** — shows whether the local dashboard is running and provides open/copy shortcuts. [Source and installation](extras/suur-menu/README.md).
 - 🧹 **Agent triage** — *Triage Inbox* (propose a home + tags + date per item) and *Organize* (tidy titles/notes/tags). Your agent proposes; you review every change before anything is written.
 - 🎬 **Cards view** — a project full of links becomes a wall of **YouTube thumbnails** (a perfect "watch later").
 - 🏷 **Tag filter chips** + full-text **search** across everything; inline rename, column reorder, board-card progress rings.
 
-All of it free, local, open source — built on the safe read-SQLite / write-URL-Scheme split. No cloud, no account, no telemetry.
+All of it free, local, open source. No cloud, no account, no telemetry. Exact task ordering in this local fork uses the experimental AppleScript command described above.
 
 ---
 
@@ -288,7 +290,7 @@ Three tiers — important if you switch machines:
 └──────────────┘                                 └──────────────────────────┘
 ```
 
-Reads use the excellent [`things.py`](https://github.com/thingsapi/things.py), which opens the DB read-only and absorbs every schema quirk. Writes are built and URL-encoded in [`urlscheme.py`](src/suur_things_mcp/urlscheme.py) and fired with `open -g`. The dashboard is a single self-contained Starlette app (no build step, no external JS) served from [`dashboard.py`](src/suur_things_mcp/dashboard.py).
+Reads use [`things.py`](https://github.com/thingsapi/things.py), which opens the DB read-only. Field writes are built and URL-encoded in [`urlscheme.py`](src/suur_things_mcp/urlscheme.py) and fired with `open -g`. Exact order uses Things AppleScript via [`native_order.py`](src/suur_things_mcp/native_order.py). The dashboard is a single self-contained Starlette app (no build step, no external JS) served from [`dashboard.py`](src/suur_things_mcp/dashboard.py).
 
 **The server stays dumb on purpose.** It returns clean structured data and ships packaged prompts; the judgment (prioritize, triage, synthesize) lives in *your* agent, not a hardcoded rules engine. There is no bundled model and no API key.
 
@@ -297,7 +299,7 @@ Reads use the excellent [`things.py`](https://github.com/thingsapi/things.py), w
 This is a **local-first, single-user macOS tool**. It's built so the worst case stays small.
 
 - **Reads are read-only.** The SQLite database is opened `mode=ro&immutable=1`; the server never writes to it.
-- **No destructive operations exist.** Writes go only through Things' documented URL Scheme. There is no "delete forever" — complete / cancel / move are all reversible inside Things.
+- **No delete-forever operation exists.** Field writes use Things' documented URL Scheme. Exact task reorder uses an undocumented AppleScript command and should be treated as experimental.
 - **The dashboard binds to `127.0.0.1` only** and never to your network. State-changing requests are guarded two ways: `TrustedHostMiddleware` rejects any request whose `Host` isn't `127.0.0.1`/`localhost` (blocks DNS-rebinding), and `_OriginGuard` rejects any POST whose `Origin` isn't the dashboard's own `scheme://host:port` (blocks a page on another localhost port from driving it).
 - **The auth token gates writes.** Modifying existing items needs `THINGS_AUTH_TOKEN`; it's resolved from the env or a `chmod 600` file *outside* any repo, and it's redacted from every URL and error message the server returns.
 - **The ✨ organize agent runs sandboxed.** The spawned `claude`/`codex` CLI gets no MCP servers and no tools, runs read-only, and the `THINGS_AUTH_TOKEN` is stripped from its environment. Its suggestions are reviewed by you before anything is written.

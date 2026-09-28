@@ -1,8 +1,10 @@
-"""Things URL Scheme — the *only* supported way to write to Things.
+"""Things URL Scheme — the documented way this package writes to Things.
 
 Cultured Code's own AI-integration guidance is explicit: writing directly to
-the SQLite database is unsafe and can corrupt it. All mutations here go through
+the SQLite database is unsafe and can corrupt it. Field changes here go through
 the documented URL Scheme (``things:///...``), executed via macOS ``open``.
+The dashboard's exact ordering uses a separate, undocumented Things AppleScript
+command; it never writes to SQLite directly.
 
 Docs: https://culturedcode.com/things/support/articles/2803573/
 """
