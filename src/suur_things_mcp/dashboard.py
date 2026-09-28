@@ -30,6 +30,7 @@ import re
 import secrets
 import shutil
 import socket
+import sqlite3
 import subprocess
 import threading
 import time
@@ -166,6 +167,22 @@ async def _version(_request: Request) -> JSONResponse:
     """The running server version — the page polls this and reloads itself when it
     changes (after an upgrade), so an open window never silently runs stale code."""
     return JSONResponse({"ok": True, "version": __version__})
+
+
+async def _health(_request: Request) -> JSONResponse:
+    """Check the actual Things read path, not just whether HTTP is listening."""
+    def check() -> None:
+        with open(reads._db_path(), "rb") as database:
+            database.read(16)
+        with sqlite3.connect(reads._db_uri(immutable=True), uri=True) as database:
+            database.execute("SELECT 1").fetchone()
+
+    try:
+        await run_in_threadpool(check)
+    except (OSError, sqlite3.Error):
+        return JSONResponse({"ok": False, "version": __version__, "database": False}, status_code=503)
+    return JSONResponse({"ok": True, "version": __version__, "database": True,
+                         "auth": bool(_auth_token())})
 
 
 def _change_cursor() -> str:
@@ -755,6 +772,7 @@ def create_app(port: int = DEFAULT_PORT) -> Starlette:
         routes=[
             Route("/", _index),
             Route("/api/version", _version),
+            Route("/api/health", _health),
             Route("/api/cursor", _cursor),
             Route("/api/organize", _organize_get),
             Route("/api/organize", _organize_post, methods=["POST"]),
@@ -886,6 +904,10 @@ def _service_command() -> list[str]:
 
     Resolving through uvx would silently replace this fork with PyPI at login.
     """
+    app_executable = os.path.expanduser(
+        "~/Applications/SUUR Dashboard.app/Contents/MacOS/SUURDashboard")
+    if os.access(app_executable, os.X_OK):
+        return [app_executable]
     import sys
 
     return [sys.executable, "-m", "suur_things_mcp", "dashboard", "--no-open"]

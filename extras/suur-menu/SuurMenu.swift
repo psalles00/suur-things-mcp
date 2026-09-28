@@ -3,7 +3,7 @@ import Foundation
 
 private enum SUUR {
     static let address = "http://127.0.0.1:8765/"
-    static let healthURL = URL(string: address + "api/version")!
+    static let healthURL = URL(string: address + "api/health")!
     static let serviceLabel = "io.suur.things-dashboard"
 }
 
@@ -63,7 +63,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         URLSession.shared.dataTask(with: request) { [weak self] data, response, _ in
             let httpOK = (response as? HTTPURLResponse)?.statusCode == 200
             let payload = data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
-            let healthy = httpOK && (payload?["ok"] as? Bool == true) && (payload?["version"] as? String != nil)
+            let healthy = httpOK && (payload?["ok"] as? Bool == true)
+                && (payload?["database"] as? Bool == true)
+                && (payload?["version"] as? String != nil)
             let version = payload?["version"] as? String
             DispatchQueue.main.async {
                 self?.updateState(healthy: healthy, version: version)

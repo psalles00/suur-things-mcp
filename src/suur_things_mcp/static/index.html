@@ -739,7 +739,7 @@ function route(){
   // Unresolvable hash → fall back to Today, but never recurse when even Today
   // can't resolve (no sidebar data — e.g. the Things DB isn't readable).
   if(h!=="#l/today") return go("#l/today");
-  $("#content").innerHTML=`<div class="err">Couldn't load your Things data — is Things 3 installed on this Mac?</div>`;
+  $("#content").innerHTML=`<div class="err">Couldn't read Things data. Check macOS file access for SUUR Dashboard.</div>`;
 }
 window.addEventListener("hashchange", route);
 

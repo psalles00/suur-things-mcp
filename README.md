@@ -62,6 +62,7 @@ Because Cultured Code says direct SQLite writes are unsafe. Reads use read-only 
 - ➕ **Natural-language quick-add** — type `buy milk tomorrow #errand` and it's parsed into a real to-do.
 - ↕ **Native task order (local fork)** — in a project or Inbox, drag a task beside another task in the same heading, or drag the top-right Plus onto a row to create there. The panel reads the order back from Things. This uses an undocumented AppleScript command and may stop working after a Things update.
 - ◉ **Optional macOS menu bar utility** — shows whether the local dashboard is running and provides open/copy shortcuts. [Source and installation](extras/suur-menu/README.md).
+- ◌ **Dedicated login app** — runs the dashboard under its own macOS app identity so its Things database access can be granted separately from Homebrew Python. [Setup and token instructions](extras/suur-dashboard/README.md).
 - 🧹 **Agent triage** — *Triage Inbox* (propose a home + tags + date per item) and *Organize* (tidy titles/notes/tags). Your agent proposes; you review every change before anything is written.
 - 🎬 **Cards view** — a project full of links becomes a wall of **YouTube thumbnails** (a perfect "watch later").
 - 🏷 **Tag filter chips** + full-text **search** across everything; inline rename, column reorder, board-card progress rings.

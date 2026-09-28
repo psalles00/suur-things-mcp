@@ -7,7 +7,7 @@ agent_path="$HOME/Library/LaunchAgents/com.pedrosalles.suur-menu.plist"
 uid=$(id -u)
 
 mkdir -p "$app_dir/Contents/MacOS" "$HOME/Library/LaunchAgents" "$HOME/Library/Logs"
-swiftc -O -framework AppKit "$script_dir/SuurMenu.swift" -o "$app_dir/Contents/MacOS/SuurMenu"
+swiftc -O -parse-as-library -framework AppKit "$script_dir/SuurMenu.swift" -o "$app_dir/Contents/MacOS/SuurMenu"
 cp "$script_dir/Info.plist" "$app_dir/Contents/Info.plist"
 codesign --force --deep --sign - "$app_dir"
 
