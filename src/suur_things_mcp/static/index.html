@@ -1674,6 +1674,7 @@ async function createFromCard(){
   // Resolving + attaching an image can take a few seconds (Things commits the DB
   // async). Show progress and lock the button so the wait doesn't look like a dead click.
   const btn=$("#ec-add"); const label=btn.textContent;
+  let placementNotice=null;
   CREATING=true; btn.disabled=true; btn.textContent=staged.length?"Adding image…":"Adding…";
   try{
     const r=await postJSON("/api/add", body);
@@ -1682,7 +1683,7 @@ async function createFromCard(){
       if(r.uuid){ for(const p of staged) await uploadAttachmentTo(r.uuid, p.file); }
       else alert("Created, but couldn't link the image automatically — open the task and attach it.");
     }
-    if(EDIT_PLACEMENT && !r.positioned) alert(r.error||"Task created, but Things did not confirm its exact position.");
+    if(EDIT_PLACEMENT && !r.positioned) placementNotice=r.error||"Task created, but Things did not confirm its exact position.";
     EDIT_PLACEMENT=null;
     clearPending(); closeOverlay("edit-overlay"); loadSidebar(); setTimeout(route,400);
   }catch(e){
@@ -1690,6 +1691,7 @@ async function createFromCard(){
   }finally{
     CREATING=false; btn.disabled=false; btn.textContent=label;
   }
+  if(placementNotice) alert(placementNotice);
 }
 async function openEdit(uuid){
   EDIT_ID=uuid; EDIT_NEW=false; clearPending();
