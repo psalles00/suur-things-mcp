@@ -45,6 +45,7 @@ Because Cultured Code says direct SQLite writes are unsafe. Reads use read-only 
 `uvx suur-things-mcp dashboard` runs a local board (`127.0.0.1:8765`) that *looks* like Things but adds the views and superpowers it doesn't have. Everything here is layered **on top** — your Things data stays untouched (boards, priorities, time-blocks, and repo links live in a local overlay, never written to Things).
 
 **Plan & focus**
+- 📆 **Five Days** — Today plus four scheduled days above up to four chosen Things projects. Hide scheduled tasks from the project columns, move tasks between projects or dates, and collapse the sidebar for a wide planning view. The title of each task stays on one line; click it for the full title. Exact placement between tasks is confirmed only when Things can order them within the same project and heading.
 - 🟦 **Priority Matrix** — an Eisenhower matrix (Do First / Schedule / Delegate / Don't Do) as a one-click view on *any* list, project, or area. Drag tasks (and an area's projects) into quadrants.
 - 🏷️ **Priority Levels** — a 2×2 grid (P1–P4) over Today *or any list/area/project*, ranked from your *existing* Things tags. Map a tag to each level (e.g. `🔴` → P1); drag a task between levels and the tag is rewritten in Things. Unlike the Matrix, the source of truth is your real tags — read-only without a token, otherwise fully bidirectional.
 - 🗂️ **Area roll-up** — open an area and see the tasks inside its projects, grouped by project, not just the area's loose to-dos. A true overview of everything under the area.

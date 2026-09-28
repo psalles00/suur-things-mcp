@@ -351,6 +351,32 @@ def list_items(list_id: str, completed_limit: int = 50, rollup: bool = True) -> 
     return {"id": list_id, "kind": "project", "notes": notes, "items": [_card(i) for i in todos(project_uuid=list_id)]}
 
 
+def five_days(start: datetime.date) -> list[dict]:
+    """Five calendar columns. Today follows Things' own Today list semantics."""
+    today_date = datetime.date.today()
+    columns = []
+    for offset in range(5):
+        day = start + datetime.timedelta(days=offset)
+        if day == today_date:
+            items = today()
+        else:
+            # Things uses todayIndex for scheduled ordering. Its default index
+            # stays at zero for many scheduled tasks, even after a native move.
+            items = things.todos(**_kw(start_date=day.isoformat(), status="incomplete",
+                                      index="todayIndex"))
+        columns.append({"date": day.isoformat(), "items": [_card(item) for item in items
+                        if item.get("type") == "to-do" and item.get("status") == "incomplete"]})
+    # Today also contains overdue tasks. When the window includes earlier dates,
+    # show each task once, preferring Things' Today column.
+    current = next((c for c in columns if c["date"] == today_date.isoformat()), None)
+    if current:
+        today_ids = {item["uuid"] for item in current["items"]}
+        for column in columns:
+            if column is not current:
+                column["items"] = [item for item in column["items"] if item["uuid"] not in today_ids]
+    return columns
+
+
 # --- Kanban board (tag-based status, browser-config inclusion) ------------
 
 def _project_counts() -> dict[str, dict[str, int]]:
@@ -417,6 +443,12 @@ def item_detail(uuid: str) -> dict | None:
     it = get(uuid)
     if not it:
         return None
+    # Things stores tasks under a heading with `heading` set but `project` null.
+    # Resolve the heading's parent for move readback in the Five Days view.
+    project_id = it.get("project")
+    if not project_id and it.get("heading"):
+        parent = get(it["heading"])
+        project_id = parent.get("project") if parent else None
     return {
         "uuid": it.get("uuid"),
         "title": it.get("title"),
@@ -427,6 +459,8 @@ def item_detail(uuid: str) -> dict | None:
         "deadline": it.get("deadline"),
         "tags": it.get("tags") or [],
         "project_title": it.get("project_title"),
+        "project": project_id,
+        "heading_title": it.get("heading_title"),
         "checklist": [
             {"title": c.get("title"), "status": c.get("status")}
             for c in (it.get("checklist") or [])

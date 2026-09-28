@@ -258,9 +258,14 @@ def _clean(data: dict) -> dict[str, Any]:
     att = _clean_attachments(data)
     plevels = _clean_priority_levels(data)
     aprefs = _clean_area_prefs(data)
+    raw_five = data.get("five_days") if isinstance(data.get("five_days"), dict) else {}
+    project_ids = raw_five.get("project_ids") if isinstance(raw_five.get("project_ids"), list) else []
+    five_days = {"project_ids": list(dict.fromkeys(str(pid) for pid in project_ids
+                 if isinstance(pid, str) and _SAFE_ID.fullmatch(pid)))[:4],
+                 "hide_scheduled": bool(raw_five.get("hide_scheduled", True))}
     common = {"priority": priority, "links": link_table, "prefs": prefs,
               "timeblocks": tb, "attachments": att, "priority_levels": plevels,
-              "area_prefs": aprefs}
+              "area_prefs": aprefs, "five_days": five_days}
     # New shape: {"boards": [...]}.
     if isinstance(data.get("boards"), list) and data["boards"]:
         boards = [_clean_board(b) for b in data["boards"] if isinstance(b, dict)]
@@ -274,7 +279,8 @@ def _clean(data: dict) -> dict[str, Any]:
 
 def _fresh() -> dict[str, Any]:
     return {"boards": [_default_board()], "priority": {}, "links": {}, "prefs": {},
-            "timeblocks": {}, "attachments": {}, "priority_levels": [], "area_prefs": {}}
+            "timeblocks": {}, "attachments": {}, "priority_levels": [], "area_prefs": {},
+            "five_days": {"project_ids": [], "hide_scheduled": True}}
 
 
 @contextmanager
@@ -440,7 +446,7 @@ def merge(partial: dict) -> dict[str, Any]:
 def _merge(partial: dict) -> dict[str, Any]:
     cfg = load()
     for key in ("boards", "priority", "links", "prefs", "timeblocks", "attachments",
-                "priority_levels", "area_prefs"):
+                "priority_levels", "area_prefs", "five_days"):
         if key in partial:
             cfg[key] = partial[key]
     return save(cfg)

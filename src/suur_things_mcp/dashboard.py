@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import datetime
 import json
 import os
 import re
@@ -242,6 +243,21 @@ async def _items(request: Request) -> JSONResponse:
         return JSONResponse({"ok": True, **data})
     except Exception as exc:  # noqa: BLE001
         return JSONResponse({"ok": False, "error": str(exc), "items": []})
+
+
+async def _five_days(request: Request) -> JSONResponse:
+    raw = request.query_params.get("start") or datetime.date.today().isoformat()
+    try:
+        start = datetime.date.fromisoformat(raw)
+        if start.year < 1970 or start.year > 2099:
+            raise ValueError("date outside supported range")
+    except ValueError:
+        return JSONResponse({"ok": False, "error": "invalid start date"}, status_code=400)
+    try:
+        days = await run_in_threadpool(reads.five_days, start)
+        return JSONResponse({"ok": True, "days": days, "today": datetime.date.today().isoformat()})
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse({"ok": False, "error": str(exc)})
 
 
 async def _item(request: Request) -> JSONResponse:
@@ -778,6 +794,7 @@ def create_app(port: int = DEFAULT_PORT) -> Starlette:
             Route("/api/organize", _organize_post, methods=["POST"]),
             Route("/api/sidebar", _sidebar),
             Route("/api/items", _items),
+            Route("/api/five-days", _five_days),
             Route("/api/item", _item),
             Route("/api/search", _search),
             Route("/api/pulse", _pulse),

@@ -43,6 +43,8 @@
 
   .sidebar { width:272px; flex:0 0 272px; background:var(--side-bg); border-right:1px solid var(--divider);
     display:flex; flex-direction:column; min-height:0; }
+  .views.sidebar-collapsed .sidebar { width:0; flex-basis:0; border:0; overflow:hidden; }
+  #sidebar-toggle { font-size:17px; }
   .side-nav { flex:1; overflow-y:auto; padding:14px 10px 8px; }
   .side-foot { flex:none; border:0; border-top:1px solid var(--divider); background:transparent; color:var(--muted);
     cursor:pointer; text-align:left; font:inherit; font-size:12.5px; padding:10px 16px; display:flex; align-items:center; gap:8px; }
@@ -432,10 +434,84 @@
     .selbar, .selbar.show { transform: translateX(-50%); }
     .ctxmenu { transform: none; }
   }
+  /* Five Days is a self-contained workspace; other SUUR views retain their styles. */
+  .main.five-mode .main-head, .main.five-mode #filterbar { display:none; }
+  .main.five-mode #content { padding:0; overflow:hidden; }
+  .five-shell { --five-accent:#9338df; height:100%; display:flex; flex-direction:column;
+    background:#fff; color:#202024; font-family:"Avenir Next",-apple-system,BlinkMacSystemFont,sans-serif; }
+  .five-nav { flex:0 0 48px; display:flex; align-items:center; justify-content:flex-end;
+    gap:8px; padding:0 24px; color:#696970; }
+  .five-nav .five-caption { margin-right:auto; font-size:11px; font-weight:750; letter-spacing:.16em; color:#98989d; }
+  .five-nav button, .five-toolbar button { border:0; background:transparent; color:inherit;
+    font:inherit; cursor:pointer; padding:6px 9px; border-radius:5px; }
+  .five-nav button:hover, .five-toolbar button:hover { background:#eeeef1; }
+  .five-nav .five-today { font-size:11px; text-transform:uppercase; letter-spacing:.1em; }
+  .five-scroller { flex:1; min-height:0; overflow-x:auto; display:flex; flex-direction:column; }
+  .five-days-grid, .five-lists-grid { min-width:1050px; display:grid; grid-template-columns:repeat(5,minmax(0,1fr));
+    column-gap:clamp(24px,4vw,80px); padding-left:clamp(30px,3.4vw,68px); padding-right:clamp(30px,2.3vw,46px); }
+  .five-days-grid { flex:1.095 1 0; min-height:250px; overflow-y:auto; padding-top:17px; padding-bottom:20px; }
+  .five-lists-grid { flex:.905 1 0; min-height:220px; overflow-y:auto; background:#f7f8fa;
+    padding-top:44px; padding-bottom:24px; }
+  .five-datecol, .five-listcol { min-width:0; display:flex; flex-direction:column; }
+  .five-date { color:#a1a1a6; font:750 12px/1.1 "Avenir Next",sans-serif;
+    letter-spacing:.15em; text-transform:uppercase; }
+  .five-dayname, .five-listname { margin:5px 0 24px; font:700 28px/1.07 "Avenir Next Condensed","Arial Narrow",sans-serif;
+    letter-spacing:-.025em; text-transform:uppercase; }
+  .five-datecol.is-today .five-dayname { color:var(--five-accent); }
+  .five-listname { font-size:27px; margin:0 0 26px; }
+  .five-taskset { flex:0 0 auto; }
+  .five-shell .row { max-width:none; min-height:45px; padding:8px 5px; gap:8px;
+    border-radius:0; border-bottom:1px solid #e6e7e9; font-size:15px; }
+  .five-shell .row:hover { background:#eeedf2; }
+  .five-shell .row .box { opacity:.38; width:15px; height:15px; flex-basis:15px; border-radius:4px; }
+  .five-shell .row:hover .box, .five-shell .row .box.done,
+  .five-shell .row:focus-within .box { opacity:1; }
+  .five-shell .row .title { min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+  .five-shell .row .meta { max-width:38%; overflow:hidden; }
+  .five-shell .row .pill { display:none; }
+  .five-shell .row.is-done .title { text-decoration:line-through; }
+  .five-group { margin:8px 0 4px; padding:9px 12px; border-radius:7px; background:#ebebee;
+    color:#37373c; font:800 11px/1 "Avenir Next",sans-serif; letter-spacing:.08em; text-transform:uppercase; }
+  .five-lines { flex:1 0 70px; min-height:70px; background:repeating-linear-gradient(to bottom,
+    transparent 0,transparent 49px,#e9e9eb 50px,#e9e9eb 51px); }
+  .five-toolbar { flex:0 0 57px; display:flex; align-items:center; gap:18px;
+    border-top:1px solid #ededf0; border-bottom:1px solid #ededf0; padding:0 clamp(30px,3.4vw,68px);
+    background:#fff; color:#77777c; white-space:nowrap; }
+  .five-toolbar .five-tab { align-self:stretch; display:flex; align-items:center;
+    border-bottom:3px solid var(--five-accent); color:#242429; font-weight:800; letter-spacing:.05em; text-transform:uppercase; }
+  .five-toolbar .five-count { color:#a1a1a6; font-size:12px; }
+  .five-toolbar .five-spacer { flex:1; }
+  .five-toolbar .five-filter { display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer; }
+  .five-toolbar .five-filter input { accent-color:var(--five-accent); }
+  .five-toolbar .five-manage { color:#34343a; font-size:12px; font-weight:700; }
+  .five-placeholder { min-height:86px; border:1px dashed #d6d8de; border-radius:7px; color:#8c8f98;
+    background:transparent; font:700 12px "Avenir Next",sans-serif; cursor:pointer; }
+  .five-placeholder:hover { border-color:var(--five-accent); color:var(--five-accent); }
+  .five-listcol .five-empty { padding:5px 0 10px; color:#a1a1a6; font-size:12px; }
+  .five-drop { outline:2px solid var(--five-accent); outline-offset:-2px; background:rgba(147,56,223,.06); }
+  .five-shell .row.five-drop-before { box-shadow:inset 0 3px var(--five-accent); }
+  .five-shell .row.five-drop-after { box-shadow:inset 0 -3px var(--five-accent); }
+  .five-shell .row.five-pending { opacity:.55; }
+  .five-error { color:#ba342e; font-size:12px; padding:12px 0; }
+  .five-picker { width:min(550px,92vw); max-height:75vh; display:flex; flex-direction:column; }
+  .five-picker-list { overflow-y:auto; flex:1; min-height:0; }
+  .five-picker-row { display:flex; gap:10px; align-items:center; padding:8px; border-bottom:1px solid var(--divider); }
+  .five-picker-row span { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .five-picker-row button { border:0; background:transparent; color:var(--text); cursor:pointer; font:inherit; }
+  html[data-theme="dark"] .five-shell { background:#1b1e23; color:#e7e9ec; }
+  html[data-theme="dark"] .five-toolbar { background:#1b1e23; border-color:#34383e; color:#abb0b8; }
+  html[data-theme="dark"] .five-lists-grid { background:#22262b; }
+  html[data-theme="dark"] .five-shell .row { border-color:#363a41; }
+  html[data-theme="dark"] .five-shell .row:hover { background:#30343b; }
+  html[data-theme="dark"] .five-group { background:#333840; color:#e7e9ec; }
+  html[data-theme="dark"] .five-lines { background:repeating-linear-gradient(to bottom,
+    transparent 0,transparent 49px,#34383e 50px,#34383e 51px); }
+  @media (max-width:1100px) { .five-days-grid,.five-lists-grid { column-gap:28px; } }
 </style>
 </head>
 <body>
 <div class="topbar">
+  <button class="iconbtn" id="sidebar-toggle" title="Collapse sidebar" aria-label="Collapse sidebar" aria-controls="sidebar" aria-expanded="true">☰</button>
   <div class="brand">SUUR THINGS</div>
   <button id="cmdk-btn" class="cmdk-btn" title="Search & commands (⌘K)">
     <svg viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="6.8" cy="6.8" r="4.1"/><path d="M9.9 9.9 14 14"/></g></svg>
@@ -729,8 +805,10 @@ async function saveItemRepos(itemId, kind, repos){
 function go(h){ if(location.hash===h) route(); else location.hash=h; }
 function route(){
   const h=location.hash;
+  if(h!=="#five-days") leaveFiveDays();
   $("#levels-gear").style.display="none";   // only the Priority Levels view shows it
   $("#rollup-pill").style.display="none";    // only area list views show it (renderList re-shows)
+  if(h==="#five-days") return renderFiveDays();
   if(h==="#about") return renderAbout();
   if(h==="#pl") return renderLevels();
   if(h==="#p") return renderPriority();
@@ -754,6 +832,7 @@ function fuzzy(q,s){ if(!q) return true; q=q.toLowerCase(); s=(s||"").toLowerCas
 function ckCommands(){
   const out=[];
   ((SIDEBAR&&SIDEBAR.builtins)||[]).forEach(b=>out.push({label:b.title, hint:"Go", icon:SVG[b.id]||"", run:()=>go("#l/"+encodeURIComponent(b.id))}));
+  out.push({label:"Five Days", hint:"Go", icon:"▦", run:()=>go("#five-days")});
   out.push({label:"Priority Matrix", hint:"Go", icon:SVG.priority, run:()=>go("#p")});
   out.push({label:"Priority Levels", hint:"Go", icon:SVG.levels, run:()=>go("#pl")});
   (CONFIG.boards||[]).forEach(b=>out.push({label:b.name, hint:"Board", icon:SVG.board, run:()=>go("#b/"+encodeURIComponent(b.id))}));
@@ -860,6 +939,9 @@ function renderSidebar(){
   const el=$("#side-nav"), oldScroll=el.scrollTop; el.innerHTML="";
   const bi=SIDEBAR.builtins, tIdx=bi.findIndex(b=>b.id==="today");
   bi.slice(0,tIdx+1).forEach(b=>el.appendChild(builtinEl(b)));
+  const five=document.createElement("div"); five.className="nav-item"; five.dataset.id="five-days";
+  five.innerHTML='<span class="ico">▦</span><span class="label">Five Days</span>';
+  five.onclick=()=>go("#five-days"); el.appendChild(five);
   const pri=document.createElement("div"); pri.className="nav-item"; pri.dataset.id="priority";
   pri.innerHTML=`<span class="ico">${SVG.priority}</span><span class="label">Priority Matrix</span>`; pri.onclick=()=>go("#p");
   el.appendChild(pri);
@@ -1876,6 +1958,7 @@ async function applyStatus(uuid, field){
   const r=await postJSON("/api/update", body);
   if(!r.ok){ alert("Update failed: "+(r.error||"")); return false; }
   const it=(LIST_ITEMS||[]).find(x=>x.uuid===uuid); if(it) it.status=(field==="completed"?"completed":"canceled");
+  if(MODE==="five"){ fivePatch(uuid,{status:field==="completed"?"completed":"canceled"}); refreshAfterWrite(); }
   loadSidebar(); return true;   // refresh counts; the item stays in LIST_ITEMS until next full fetch
 }
 function rerenderCurrent(){
@@ -1886,6 +1969,7 @@ function rerenderCurrent(){
     if(LIST_KIND==="area") items=areaProjects(SEL.id).map(p=>({uuid:p.uuid,title:p.title,progress:p.progress,_proj:true})).concat(items);
     renderMatrix(items); }
   else if(MODE==="list") renderRows();
+  else if(MODE==="five") fivePaint();
   if(c) c.scrollTop=top;
 }
 async function completeTask(){
@@ -1905,6 +1989,7 @@ async function postUpdate(body){
     if(body.tags!==undefined) it.tags=body.tags;
     if(body.deadline!==undefined) it.deadline=body.deadline;
   }
+  if(MODE==="five") fivePatch(body.id,{title:body.title,has_notes:!!body.notes,tags:body.tags,deadline:body.deadline});
   closeOverlay("edit-overlay"); rerenderCurrent(); refreshAfterWrite();
 }
 function openInThings(){ if(EDIT_ID) window.location.href="things:///show?id="+encodeURIComponent(EDIT_ID); }
@@ -2073,6 +2158,262 @@ async function commitHeadRename(){
   h.addEventListener("blur", commitHeadRename);
 })();
 
+// --- Five Days: five Things dates above four user-selected projects ---
+let FIVE_ACTIVE=false, FIVE_START=null, FIVE_TODAY=null, FIVE_DATA={days:[],lists:{}}, FIVE_PRIOR_SIDEBAR=false;
+let SIDEBAR_MANUAL=localStorage.getItem("suur-sidebar-collapsed")==="1";
+function setSidebarCollapsed(on){
+  $(".views").classList.toggle("sidebar-collapsed",on);
+  const b=$("#sidebar-toggle"); b.setAttribute("aria-expanded",String(!on));
+  b.setAttribute("aria-label",on?"Expand sidebar":"Collapse sidebar"); b.title=b.getAttribute("aria-label");
+}
+function leaveFiveDays(){
+  if(!FIVE_ACTIVE) return;
+  FIVE_ACTIVE=false; $(".main").classList.remove("five-mode");
+  setSidebarCollapsed(FIVE_PRIOR_SIDEBAR);
+}
+function fivePrefs(){ return CONFIG.five_days||{project_ids:[],hide_scheduled:true}; }
+function fiveNowISO(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+function fiveDate(iso){ const [y,m,d]=iso.split("-").map(Number); return new Date(y,m-1,d); }
+function fiveShift(n){ const d=fiveDate(FIVE_START); d.setDate(d.getDate()+n);
+  FIVE_START=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  renderFiveDays(); }
+function fiveProject(id){
+  for(const a of (SIDEBAR?.areas||[])){ const p=a.projects.find(p=>p.uuid===id); if(p) return p; }
+  return (SIDEBAR?.arealess||[]).find(p=>p.uuid===id)||null;
+}
+function fiveAllProjects(){ return (SIDEBAR?.areas||[]).flatMap(a=>a.projects).concat(SIDEBAR?.arealess||[]); }
+function fiveShell(){
+  const c=$("#content"); c.classList.remove("swap-in");
+  c.innerHTML=`<div class="five-shell"><nav class="five-nav" aria-label="Five-day navigation">
+    <span class="five-caption">SUUR · FIVE DAYS</span>
+    <button type="button" data-shift="-5" aria-label="Back five days">«</button>
+    <button type="button" data-shift="-1" aria-label="Previous day">‹</button>
+    <button type="button" class="five-today" id="five-reset">Today</button>
+    <button type="button" data-shift="1" aria-label="Next day">›</button>
+    <button type="button" data-shift="5" aria-label="Forward five days">»</button></nav>
+    <div class="five-scroller"><div class="five-days-grid" id="five-days-grid"></div>
+    <div class="five-toolbar" id="five-toolbar"></div>
+    <div class="five-lists-grid" id="five-lists-grid"></div></div></div>`;
+  c.querySelectorAll("[data-shift]").forEach(b=>b.onclick=()=>fiveShift(Number(b.dataset.shift)));
+  $("#five-reset").onclick=()=>{ FIVE_START=fiveNowISO(); renderFiveDays(); };
+}
+async function renderFiveDays(){
+  const request=++CONTENT_REQUEST;
+  if(!FIVE_ACTIVE){ FIVE_ACTIVE=true; FIVE_PRIOR_SIDEBAR=$(".views").classList.contains("sidebar-collapsed");
+    FIVE_START=fiveNowISO(); FIVE_DATA={days:[],lists:{}}; setSidebarCollapsed(true); }
+  MODE="five"; CUR_BOARD=null; SEL=null; setActive("five-days");
+  $(".main").classList.remove("fill"); $(".main").classList.add("five-mode");
+  if(!$("#content .five-shell")) fiveShell();
+  fivePaint();
+  const days=await getJSON("/api/five-days?start="+encodeURIComponent(FIVE_START));
+  if(request!==CONTENT_REQUEST || !FIVE_ACTIVE) return;
+  FIVE_DATA.days=days.ok?days.days:[]; FIVE_DATA.dayError=days.ok?"":days.error||"Could not read dates";
+  FIVE_TODAY=days.today||fiveNowISO(); fivePaint();
+  for(const id of fivePrefs().project_ids){
+    getJSON("/api/items?id="+encodeURIComponent(id)).then(data=>{
+      if(request!==CONTENT_REQUEST || !FIVE_ACTIVE) return;
+      FIVE_DATA.lists[id]=data; fivePaint();
+    });
+  }
+}
+function fiveCollect(){
+  const byId=new Map();
+  for(const day of FIVE_DATA.days) for(const it of day.items) byId.set(it.uuid,it);
+  for(const id of fivePrefs().project_ids) for(const it of (FIVE_DATA.lists[id]?.items||[])) if(!byId.has(it.uuid)) byId.set(it.uuid,it);
+  LIST_ITEMS=[...byId.values()];
+}
+function fivePatch(id,patch){
+  for(const day of FIVE_DATA.days) for(const it of day.items) if(it.uuid===id) Object.assign(it,patch);
+  for(const list of Object.values(FIVE_DATA.lists)) for(const it of (list?.items||[])) if(it.uuid===id) Object.assign(it,patch);
+}
+function fiveAppendRows(col,items,key,source){
+  const groups=key==="heading_title"?groupConsecutive(items,key):groupBy(items,key);
+  for(const group of groups){
+    if(group.key){ const h=document.createElement("div"); h.className="five-group";
+      h.textContent=group.key; if(key==="heading_title") h.dataset.fiveHeading=group.key;
+      col.appendChild(h); }
+    for(const it of group.items){ const row=rowEl(it); row.draggable=false;
+      if(it.status==="incomplete") fiveAttachDrag(row,it,source);
+      col.appendChild(row); }
+  }
+}
+function fivePaint(){
+  if(!FIVE_ACTIVE || !$("#five-days-grid")) return;
+  const dg=$("#five-days-grid"), lg=$("#five-lists-grid");
+  const ds=dg.scrollTop, ls=lg.scrollTop; dg.replaceChildren(); lg.replaceChildren(); fiveCollect();
+  const today=FIVE_TODAY||fiveNowISO();
+  for(let i=0;i<5;i++){
+    const d=fiveDate(FIVE_START); d.setDate(d.getDate()+i);
+    const iso=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    const col=document.createElement("section"); col.className="five-datecol"+(iso===today?" is-today":""); col.dataset.fiveDate=iso;
+    const label=d.toLocaleDateString("en-US",{day:"2-digit",month:"short",year:"numeric"}).toUpperCase();
+    const name=d.toLocaleDateString("en-US",{weekday:"long"}).toUpperCase();
+    col.innerHTML=`<div class="five-date">${esc(label)}</div><h2 class="five-dayname">${esc(name)}</h2>`;
+    const items=FIVE_DATA.days.find(day=>day.date===iso)?.items||[];
+    fiveAppendRows(col,items,"project_title",{kind:"date",date:iso});
+    if(FIVE_DATA.dayError && i===0){ const e=document.createElement("div"); e.className="five-error"; e.textContent=FIVE_DATA.dayError; col.appendChild(e); }
+    const lines=document.createElement("div"); lines.className="five-lines"; col.appendChild(lines); dg.appendChild(col);
+  }
+  const prefs=fivePrefs(), bar=$("#five-toolbar");
+  bar.innerHTML=`<span class="five-tab">Lists</span><span class="five-count">${prefs.project_ids.length} / 4</span>
+    <span class="five-spacer"></span><label class="five-filter"><input type="checkbox" id="five-hide" ${prefs.hide_scheduled?"checked":""}>Hide scheduled</label>
+    <button type="button" class="five-manage" id="five-manage">＋ Choose projects</button>`;
+  $("#five-hide").onchange=e=>fiveSavePrefs({...prefs,hide_scheduled:e.target.checked});
+  $("#five-manage").onclick=fiveOpenPicker;
+  for(let i=0;i<4;i++){
+    const id=prefs.project_ids[i], col=document.createElement("section"); col.className="five-listcol";
+    if(id){ col.dataset.fiveProject=id; const p=fiveProject(id), data=FIVE_DATA.lists[id];
+      const title=document.createElement("h2"); title.className="five-listname"; title.textContent=p?.title||"Project unavailable"; col.appendChild(title);
+      if(data && !data.ok){ const e=document.createElement("div"); e.className="five-error"; e.textContent=data.error||"Could not read project"; col.appendChild(e); }
+      else if(data){ const items=(data.items||[]).filter(it=>!prefs.hide_scheduled || !it.start_date);
+        fiveAppendRows(col,items,"heading_title",{kind:"project",id});
+        if(!items.length){ const e=document.createElement("div"); e.className="five-empty"; e.textContent="No unscheduled tasks"; col.appendChild(e); }
+        if(data.order_synced===false){ const e=document.createElement("div"); e.className="five-error"; e.textContent="Native order unavailable; precise drops are disabled."; col.appendChild(e); }
+      } else { const e=document.createElement("div"); e.className="five-empty"; e.textContent="Loading…"; col.appendChild(e); }
+      const lines=document.createElement("div"); lines.className="five-lines"; col.appendChild(lines);
+    } else { const b=document.createElement("button"); b.className="five-placeholder"; b.textContent="＋ CHOOSE A PROJECT";
+      b.onclick=fiveOpenPicker; col.appendChild(b); }
+    lg.appendChild(col);
+  }
+  const manage=document.createElement("section"); manage.className="five-listcol";
+  const b=document.createElement("button"); b.className="five-placeholder"; b.textContent=prefs.project_ids.length?"＋ MANAGE LISTS":"＋ ADD LIST";
+  b.onclick=fiveOpenPicker; manage.appendChild(b); lg.appendChild(manage);
+  dg.scrollTop=ds; lg.scrollTop=ls;
+}
+async function fiveSavePrefs(next){
+  const r=await postJSON("/api/config",{five_days:next});
+  if(!r.ok){ alert("Could not save Five Days: "+(r.error||"unknown error")); return; }
+  CONFIG=r.config; fivePaint(); renderFiveDays();
+}
+function fiveOpenPicker(){
+  document.getElementById("five-picker-overlay")?.remove();
+  const overlay=document.createElement("div"); overlay.className="overlay show"; overlay.id="five-picker-overlay";
+  const panel=document.createElement("div"); panel.className="panel five-picker";
+  panel.innerHTML=`<div class="panel-head"><h2>Choose up to four projects</h2><button class="btn ghost" id="five-picker-close">✕</button></div>
+    <input class="field" id="five-picker-search" placeholder="Search projects" aria-label="Search projects">
+    <div class="five-picker-list" id="five-picker-list"></div>`;
+  overlay.appendChild(panel); document.body.appendChild(overlay);
+  const close=()=>overlay.remove(); overlay.onclick=e=>{if(e.target===overlay) close();};
+  panel.querySelector("#five-picker-close").onclick=close;
+  const search=panel.querySelector("#five-picker-search");
+  const draw=()=>{
+    const box=panel.querySelector("#five-picker-list"); box.replaceChildren();
+    const selected=fivePrefs().project_ids, query=search.value.toLocaleLowerCase();
+    const projects=fiveAllProjects().filter(p=>p.title.toLocaleLowerCase().includes(query));
+    for(const p of projects){ const row=document.createElement("div"); row.className="five-picker-row";
+      const check=document.createElement("input"); check.type="checkbox"; check.checked=selected.includes(p.uuid);
+      check.disabled=!check.checked && selected.length>=4;
+      check.onchange=async()=>{ const ids=check.checked?[...selected,p.uuid]:selected.filter(id=>id!==p.uuid);
+        await fiveSavePrefs({...fivePrefs(),project_ids:ids}); draw(); };
+      const label=document.createElement("span"); label.textContent=p.title; row.append(check,label);
+      if(check.checked){ for(const [symbol,delta] of [["↑",-1],["↓",1]]){
+        const button=document.createElement("button"); button.textContent=symbol; button.title=delta<0?"Move left":"Move right";
+        button.onclick=async()=>{ const ids=[...selected], at=ids.indexOf(p.uuid), other=at+delta;
+          if(other<0||other>=ids.length) return; [ids[at],ids[other]]=[ids[other],ids[at]];
+          await fiveSavePrefs({...fivePrefs(),project_ids:ids}); draw(); }; row.appendChild(button);
+      }} box.appendChild(row); }
+  };
+  search.oninput=draw; draw(); search.focus();
+}
+function fiveClearDrop(){
+  document.querySelectorAll(".five-drop,.five-drop-before,.five-drop-after").forEach(el=>
+    el.classList.remove("five-drop","five-drop-before","five-drop-after"));
+}
+function fiveDropTarget(x,y){
+  const at=document.elementFromPoint(x,y), row=at?.closest(".five-shell .row[data-task-id]");
+  const date=at?.closest(".five-datecol[data-five-date]");
+  const project=at?.closest(".five-listcol[data-five-project]");
+  const heading=at?.closest(".five-group[data-five-heading]");
+  if(!date && !project) return null;
+  return {row,date:date?.dataset.fiveDate,project:project?.dataset.fiveProject,
+          heading:heading?.dataset.fiveHeading,before:!!row && y<row.getBoundingClientRect().top+row.offsetHeight/2,
+          column:date||project};
+}
+function fiveAttachDrag(row,it,source){
+  row.addEventListener("pointerdown",e=>{
+    if(e.button!==0 || e.target.closest(".box,a,button,input")) return;
+    const x=e.clientX,y=e.clientY,id=e.pointerId; let moving=false,ghost=null;
+    const move=ev=>{
+      if(ev.pointerId!==id) return;
+      if(!moving && Math.hypot(ev.clientX-x,ev.clientY-y)<6) return;
+      if(!moving){ moving=true; row.classList.add("dragging"); document.body.classList.add("dragging-task");
+        ghost=document.createElement("div"); ghost.className="pointer-ghost"; ghost.textContent=it.title||"Task"; document.body.appendChild(ghost); }
+      ev.preventDefault(); ghost.style.left=(ev.clientX+14)+"px"; ghost.style.top=(ev.clientY+14)+"px";
+      fiveClearDrop(); const target=fiveDropTarget(ev.clientX,ev.clientY);
+      if(target){ target.column.classList.add("five-drop");
+        if(target.row) target.row.classList.add(target.before?"five-drop-before":"five-drop-after"); }
+    };
+    const cleanup=()=>{ window.removeEventListener("pointermove",move); window.removeEventListener("pointerup",end);
+      window.removeEventListener("pointercancel",cancel); row.classList.remove("dragging");
+      document.body.classList.remove("dragging-task"); ghost?.remove(); fiveClearDrop(); };
+    const end=ev=>{ if(ev.pointerId!==id) return; const target=moving?fiveDropTarget(ev.clientX,ev.clientY):null;
+      cleanup(); if(!moving) return;
+      SUPPRESS_DRAG_CLICK=true; setTimeout(()=>{SUPPRESS_DRAG_CLICK=false;},0);
+      if(target) fivePerformDrop(it,source,target,row); };
+    const cancel=ev=>{if(ev.pointerId===id) cleanup();};
+    window.addEventListener("pointermove",move); window.addEventListener("pointerup",end);
+    window.addEventListener("pointercancel",cancel);
+  });
+}
+async function fiveWaitItem(id, matches){
+  const until=Date.now()+3500;
+  while(Date.now()<until){ const r=await getJSON("/api/item?id="+encodeURIComponent(id));
+    if(r.ok && matches(r.item)) return true;
+    await new Promise(resolve=>setTimeout(resolve,90)); }
+  return false;
+}
+async function fivePerformDrop(it,source,target,row){
+  if(!AUTH){ alert("Set THINGS_AUTH_TOKEN to move tasks."); return; }
+  const targetId=target.row?.dataset.taskId;
+  if(targetId===it.uuid) return;
+  row.classList.add("five-pending");
+  try{
+    if(target.date){
+      const sameDate=source.kind==="date" && source.date===target.date;
+      if(sameDate && !targetId) return;
+      if(!sameDate){
+        const r=await postJSON("/api/update",{id:it.uuid,when:target.date});
+        if(!r.ok) throw Error(r.error||"Could not schedule task");
+        if(!await fiveWaitItem(it.uuid,item=>item.start_date===target.date)) throw Error("Things did not confirm the new date");
+      }
+      if(targetId){
+        const [moved,neighbor]=await Promise.all([it.uuid,targetId].map(id=>
+          getJSON("/api/item?id="+encodeURIComponent(id))));
+        const a=moved.item, b=neighbor.item;
+        if(moved.ok && neighbor.ok && a?.project && a.project===b?.project &&
+           (a.heading_title||"")===(b.heading_title||"")){
+          const order=await postJSON("/api/reorder",{list_id:a.project,moved_id:it.uuid,
+            target_id:targetId,before:target.before});
+          if(!order.ok) throw Error("Things did not confirm the requested position: "+(order.error||"unknown error"));
+        } else {
+          alert("Things cannot confirm a relative position between these tasks.");
+        }
+      }
+    } else if(target.project && source.kind==="project"){
+      const dest=FIVE_DATA.lists[target.project], targetItem=(dest?.items||[]).find(x=>x.uuid===targetId);
+      if(targetId && (!targetItem || !dest?.order_synced || !dest?.order_writable))
+        throw Error("Precise placement requires the native Things order helper");
+      const heading=targetItem?.heading_title??target.heading??"";
+      if(source.id!==target.project){
+        const r=await postJSON("/api/update",{id:it.uuid,list_id:target.project,heading});
+        if(!r.ok) throw Error(r.error||"Could not move task");
+        if(!await fiveWaitItem(it.uuid,item=>item.project===target.project &&
+              (item.heading_title||"")===heading)) throw Error("Things did not confirm the destination project");
+      } else if((targetId || target.heading!==undefined) && (it.heading_title||"")!==heading){
+        const r=await postJSON("/api/update",{id:it.uuid,heading});
+        if(!r.ok) throw Error(r.error||"Could not move heading");
+        if(!await fiveWaitItem(it.uuid,item=>(item.heading_title||"")===heading)) throw Error("Things did not confirm the heading");
+      } else if(!targetId) return;
+      if(targetId){
+        const r=await postJSON("/api/reorder",{list_id:target.project,moved_id:it.uuid,target_id:targetId,before:target.before});
+        if(!r.ok) throw Error(r.error||"Things did not confirm the task position");
+      }
+    } else return;
+    refreshAfterWrite();
+  }catch(e){ alert("Move not confirmed: "+(e?.message||e)); renderFiveDays(); }
+  finally{ row.classList.remove("five-pending"); }
+}
+
 function renderAbout(){
   ++CONTENT_REQUEST;
   MODE="about"; CUR_BOARD=null;
@@ -2186,7 +2527,7 @@ function canAutoRefresh(){
   if(SELECTED.size) return false;                              // mid multi-select
   if(document.getElementById("ctxmenu")) return false;         // context menu open
   if(MODE==="search"||MODE==="about"||CUR_FILTER) return false; // focused on a filter/search/about
-  return MODE==="list"||MODE==="matrix"||MODE==="board"||MODE==="timeline";
+  return MODE==="list"||MODE==="matrix"||MODE==="board"||MODE==="timeline"||MODE==="five";
 }
 let LAST_CURSOR=null;
 let WRITE_REFRESH_PENDING=false, WRITE_REFRESH_SEQ=0;
@@ -2237,6 +2578,9 @@ document.addEventListener("visibilitychange",()=>{ if(!document.hidden && canAut
 // binds its own listeners right after it's built).
 function wireStatic(){
   const on=(sel,fn)=>{ const el=$(sel); if(el) el.onclick=fn; };
+  on("#sidebar-toggle",()=>{ const collapsed=!$(".views").classList.contains("sidebar-collapsed");
+    setSidebarCollapsed(collapsed);
+    if(!FIVE_ACTIVE){ SIDEBAR_MANUAL=collapsed; localStorage.setItem("suur-sidebar-collapsed",collapsed?"1":"0"); } });
   on("#cmdk-btn",openCmdk);
   on("#add-btn",()=>openCreate("todo"));
   const addBtn=$("#add-btn"); addBtn.draggable=false;
@@ -2280,7 +2624,7 @@ function wireStatic(){
   on("#b-delete",deleteBoard);
 }
 
-(async()=>{ wireStatic(); buildSelBar(); await loadConfig(); await loadSidebar(); route();
+(async()=>{ wireStatic(); setSidebarCollapsed(SIDEBAR_MANUAL); buildSelBar(); await loadConfig(); await loadSidebar(); route();
   // Seed the change cursor so the first poll doesn't trigger a pointless refresh.
   getJSON("/api/cursor").then(d=>{ if(d&&d.ok) LAST_CURSOR=d.cursor; });
   // Near-live: the cursor check is ~3 stat() calls server-side, so poll often —
