@@ -8,39 +8,16 @@ from __future__ import annotations
 
 import re
 import json
-import ctypes
 import subprocess
 import time
+from pathlib import Path
 
 from . import reads
 
 
 _ID = re.compile(r"^[A-Za-z0-9_-]{10,80}$")
-_ACCESS_ERROR = "Allow SUUR Dashboard in System Settings > Privacy & Security > Device Control and Data Access to reorder Things tasks."
-_MOVE_SCRIPT = r'''
-on run argv
-    set taskID to item 1 of argv
-    set moveDirection to item 2 of argv
-    set moveCount to (item 3 of argv) as integer
-    tell application "Things3"
-        show (to do id taskID)
-        activate
-    end tell
-    tell application "System Events"
-        tell process "Things3"
-            repeat moveCount times
-                if moveDirection is "up" then
-                    key code 126 using command down
-                else
-                    key code 125 using command down
-                end if
-                delay 0.04
-            end repeat
-        end tell
-    end tell
-end run
-'''
-_ACCESS_SCRIPT = 'tell application "System Events" to tell process "Things3" to get count of windows'
+_ACCESS_ERROR = "Allow SUUR Order in System Settings > Privacy & Security > Device Control and Data Access to reorder Things tasks."
+_HELPER = Path.home() / "Applications/SUUR Order.app/Contents/MacOS/SUUROrder"
 _READ_SCRIPT = r'''
 function run(argv) {
     var things = Application('Things3');
@@ -79,22 +56,14 @@ def native_ids(list_id: str) -> list[str]:
 
 def order_writable() -> bool:
     try:
-        ax = ctypes.CDLL("/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices")
-        ax.AXIsProcessTrusted.restype = ctypes.c_bool
-        return bool(ax.AXIsProcessTrusted())
-    except OSError:
+        return subprocess.run([str(_HELPER), "--check"], capture_output=True,
+                              timeout=3).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
         return False
 
 
 def _check_access() -> None:
     if not order_writable():
-        raise NativeOrderError(_ACCESS_ERROR)
-    try:
-        result = subprocess.run(["/usr/bin/osascript", "-e", _ACCESS_SCRIPT],
-                                capture_output=True, text=True, timeout=3)
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        raise NativeOrderError(f"{_ACCESS_ERROR} ({exc})") from exc
-    if result.returncode:
         raise NativeOrderError(_ACCESS_ERROR)
 
 
@@ -141,8 +110,8 @@ def _tasks(list_id: str) -> list[dict]:
 def _move(task_id: str, direction: str, count: int) -> None:
     try:
         result = subprocess.run(
-            ["/usr/bin/osascript", "-e", _MOVE_SCRIPT, "--", task_id, direction, str(count)],
-            capture_output=True, text=True, timeout=10,
+            [str(_HELPER), task_id, direction, str(count)],
+            capture_output=True, text=True, timeout=max(10, count * 0.2 + 5),
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise NativeOrderError(f"Things did not move the task: {exc}") from exc

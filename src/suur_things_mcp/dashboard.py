@@ -235,7 +235,7 @@ async def _items(request: Request) -> JSONResponse:
                 data["order_synced"] = True
                 data["order_writable"] = native_order.order_writable()
                 if not data["order_writable"]:
-                    data["order_error"] = "Enable SUUR Dashboard in Privacy & Security > Device Control and Data Access to drag tasks."
+                    data["order_error"] = "Enable SUUR Order in Privacy & Security > Device Control and Data Access to drag tasks."
             except native_order.NativeOrderError as exc:
                 data["order_synced"] = False
                 data["order_error"] = str(exc)

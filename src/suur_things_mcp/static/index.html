@@ -112,6 +112,11 @@
   .row:hover { background:var(--row-hover); }
   .row.drop-before { box-shadow:inset 0 3px var(--accent); }
   .row.drop-after { box-shadow:inset 0 -3px var(--accent); }
+  #head-title.drop { outline:2px dashed var(--accent); outline-offset:4px; border-radius:5px; }
+  .pointer-ghost { position:fixed; z-index:9999; pointer-events:none; max-width:300px; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap; padding:6px 10px; border-radius:8px;
+    color:var(--text); background:var(--main-bg); box-shadow:var(--card-shadow); opacity:.92; font-size:12px; }
+  .row.dragging { opacity:.55; }
   #add-btn:active { cursor:grabbing; }
   .row.is-done .title { color:var(--muted); }
   .box { width:17px; height:17px; flex:0 0 17px; border:1.5px solid var(--check-border);
@@ -615,7 +620,7 @@ const SVG={
 const ABOUT_HTML=`<div class="about">
   <p class="lead">A local, Things-faithful dashboard and <a href="https://modelcontextprotocol.io" target="_blank" rel="noopener">MCP</a> server for <a href="https://culturedcode.com/things/" target="_blank" rel="noopener">Things 3</a> — so any AI agent can read and manage your tasks, and you get views Things doesn't have (project boards, an Eisenhower matrix, a cards view).</p>
   <h2>How it works</h2>
-  <p><strong>Reads</strong> come from the local Things SQLite database (read-only) via <a href="https://github.com/thingsapi/things.py" target="_blank" rel="noopener">things.py</a>. Field changes use the official Things URL Scheme. Exact task ordering in Inbox and projects uses an undocumented Things AppleScript command and is experimental. This server never writes the database directly. Boards and priority quadrants are local browser overlays; they never touch your Things data.</p>
+  <p><strong>Reads</strong> come from the local Things SQLite database (read-only) via <a href="https://github.com/thingsapi/things.py" target="_blank" rel="noopener">things.py</a>. Field changes use the official Things URL Scheme. Exact task ordering in Inbox and projects uses Things' native Move Up/Down shortcuts through the SUUR Order helper. This server never writes the database directly. Boards and priority quadrants are local browser overlays; they never touch your Things data.</p>
   <h2>Thanks</h2>
   <ul>
     <li><strong>Cultured Code</strong> — for <a href="https://culturedcode.com/things/" target="_blank" rel="noopener">Things 3</a>, the task app this is built around, and for documenting a safe automation path.</li>
@@ -925,6 +930,91 @@ function resolveList(id){
 // --- list view ---
 let LIST_ITEMS=[], LIST_KIND="", LIST_NOTES=null, CUR_FILTER=null, LIST_ROLLUP=true, LIST_ORDER_SYNCED=false, LIST_ORDER_WRITABLE=false, LIST_ORDER_ERROR="";
 let ACTIVE_LIST_DRAG=null;
+let SUPPRESS_DRAG_CLICK=false;
+document.addEventListener("click",e=>{
+  if(SUPPRESS_DRAG_CLICK){ e.preventDefault(); e.stopImmediatePropagation(); SUPPRESS_DRAG_CLICK=false; }
+},true);
+function canPlaceInList(){
+  return MODE==="list" && !CUR_FILTER && LIST_ORDER_SYNCED && LIST_ORDER_WRITABLE &&
+    (LIST_KIND==="project" || SEL?.id==="inbox");
+}
+function clearPointerDrag(source, ghost){
+  ACTIVE_LIST_DRAG=null; source.classList.remove("dragging"); document.body.classList.remove("dragging-task");
+  document.querySelectorAll(".row.drop-before,.row.drop-after,.grp-head.drop,.heading-dropzone.drop,#head-title.drop,.nav-item.drop-when")
+    .forEach(el=>el.classList.remove("drop-before","drop-after","drop","drop-when"));
+  ghost?.remove();
+}
+function pointerTarget(selector,x,y){
+  return [...document.querySelectorAll(selector)].find(el=>{
+    const r=el.getBoundingClientRect(); return x>=r.left && x<r.right && y>=r.top && y<r.bottom;
+  })||null;
+}
+function pointerListDrag(source, kind, taskId=null){
+  source.addEventListener("pointerdown",e=>{
+    if(e.button!==0 || !canPlaceInList() || e.target.closest(".box")) return;
+    const startX=e.clientX, startY=e.clientY, pointerId=e.pointerId;
+    let moving=false, ghost=null;
+    source.setPointerCapture(pointerId);
+    const move=ev=>{
+      if(ev.pointerId!==pointerId) return;
+      if(!moving && Math.hypot(ev.clientX-startX,ev.clientY-startY)<6) return;
+      if(!moving){
+        moving=true; ACTIVE_LIST_DRAG={kind,id:taskId}; source.classList.add("dragging");
+        ghost=document.createElement("div"); ghost.className="pointer-ghost";
+        ghost.textContent=kind==="magic"?"＋ New task":(LIST_ITEMS.find(x=>x.uuid===taskId)?.title||"Task");
+        document.body.appendChild(ghost);
+      }
+      ev.preventDefault();
+      ghost.style.left=(ev.clientX+14)+"px"; ghost.style.top=(ev.clientY+14)+"px";
+      document.querySelectorAll(".row.drop-before,.row.drop-after,.grp-head.drop,.heading-dropzone.drop,#head-title.drop,.nav-item.drop-when")
+        .forEach(el=>el.classList.remove("drop-before","drop-after","drop","drop-when"));
+      const row=pointerTarget(".row[data-task-id]",ev.clientX,ev.clientY);
+      const dest=LIST_ITEMS.find(x=>x.uuid===row?.dataset.taskId);
+      const from=LIST_ITEMS.find(x=>x.uuid===taskId);
+      if(dest && dest.status==="incomplete" && (kind==="magic" ||
+          (from && from.uuid!==dest.uuid && (from.heading_title||"")===(dest.heading_title||"")))){
+        row.classList.add(ev.clientY<row.getBoundingClientRect().top+row.offsetHeight/2?"drop-before":"drop-after");
+      } else if(kind==="task"){
+        pointerTarget(".grp-head[data-heading],.heading-dropzone[data-heading]",ev.clientX,ev.clientY)?.classList.add("drop");
+        if(LIST_KIND==="project") pointerTarget("#head-title",ev.clientX,ev.clientY)?.classList.add("drop");
+        const nav=pointerTarget(".nav-item[data-id]",ev.clientX,ev.clientY);
+        if(nav && ["today","anytime","someday"].includes(nav.dataset.id)) nav.classList.add("drop-when");
+      }
+    };
+    const end=async ev=>{
+      if(ev.pointerId!==pointerId) return;
+      source.removeEventListener("pointermove",move); source.removeEventListener("pointerup",end);
+      source.removeEventListener("pointercancel",cancel);
+      if(source.hasPointerCapture(pointerId)) source.releasePointerCapture(pointerId);
+      if(!moving) return;
+      SUPPRESS_DRAG_CLICK=true; setTimeout(()=>{ SUPPRESS_DRAG_CLICK=false; },0);
+      const row=pointerTarget(".row[data-task-id]",ev.clientX,ev.clientY);
+      const dest=LIST_ITEMS.find(x=>x.uuid===row?.dataset.taskId);
+      const from=LIST_ITEMS.find(x=>x.uuid===taskId);
+      const before=!!row && ev.clientY<row.getBoundingClientRect().top+row.offsetHeight/2;
+      const heading=kind==="task"?pointerTarget(".grp-head[data-heading],.heading-dropzone[data-heading]",ev.clientX,ev.clientY):null;
+      const projectTitle=kind==="task" && LIST_KIND==="project"?pointerTarget("#head-title",ev.clientX,ev.clientY):null;
+      const nav=kind==="task"?pointerTarget(".nav-item[data-id]",ev.clientX,ev.clientY):null;
+      clearPointerDrag(source,ghost);
+      if(dest && dest.status==="incomplete" && (kind==="magic" ||
+          (from && from.uuid!==dest.uuid && (from.heading_title||"")===(dest.heading_title||"")))){
+        if(kind==="magic"){ openCreate("todo",{list_id:SEL.id,target_id:dest.uuid,before}); return; }
+        const r=await postJSON("/api/reorder",{list_id:SEL.id,moved_id:taskId,target_id:dest.uuid,before});
+        if(!r.ok) alert("Things did not confirm the order: "+(r.error||"unknown error"));
+        if(SEL) renderList(SEL,MODE);
+      } else if(heading){ moveToHeading(taskId,heading.dataset.heading); }
+      else if(projectTitle){ moveToHeading(taskId,""); }
+      else if(nav && ["today","anytime","someday"].includes(nav.dataset.id)) reschedule(taskId,nav.dataset.id);
+    };
+    const cancel=ev=>{
+      if(ev.pointerId!==pointerId) return;
+      source.removeEventListener("pointermove",move); source.removeEventListener("pointerup",end);
+      source.removeEventListener("pointercancel",cancel); clearPointerDrag(source,ghost);
+    };
+    source.addEventListener("pointermove",move); source.addEventListener("pointerup",end);
+    source.addEventListener("pointercancel",cancel);
+  });
+}
 async function renderList(sel, view="list"){
   const matrix=view==="matrix", levels=view==="levels", cards=view==="cards", timeline=view==="timeline";
   MODE=view; CUR_BOARD=null; SEL=sel;
@@ -1020,7 +1110,7 @@ function renderRows(){
   }
   if((LIST_KIND==="project" || SEL.id==="inbox") && LIST_ORDER_SYNCED && !LIST_ORDER_WRITABLE){
     const warning=document.createElement("div"); warning.className="err";
-    warning.textContent=LIST_ORDER_ERROR||"Enable SUUR Dashboard in macOS privacy settings to drag tasks into an exact position.";
+    warning.textContent=LIST_ORDER_ERROR||"Enable SUUR Order in macOS privacy settings to drag tasks into an exact position.";
     c.appendChild(warning);
   }
   if(LIST_NOTES){ const n=document.createElement("div"); n.className="proj-notes"; n.innerHTML=linkify(LIST_NOTES); c.appendChild(n); }
@@ -1059,10 +1149,10 @@ function renderRows(){
   // For a project with headings, a "no heading" drop zone (visible only while dragging)
   // lets you pull a task back out to the top of the project.
   if(LIST_KIND==="project" && groups.some(g=>g.key)){
-    const dz=document.createElement("div"); dz.className="heading-dropzone"; dz.textContent="Drop here for no heading (top of project)";
+    const dz=document.createElement("div"); dz.className="heading-dropzone"; dz.dataset.heading=""; dz.textContent="Drop here for no heading (top of project)";
     headingDrop(dz, ""); c.appendChild(dz);
   }
-  for(const g of groups){ if(g.key){ const h=document.createElement("div"); h.className="grp-head"; h.textContent=g.key;
+  for(const g of groups){ if(g.key){ const h=document.createElement("div"); h.className="grp-head"; h.dataset.heading=g.key; h.textContent=g.key;
     if(LIST_KIND==="project") headingDrop(h, g.key);   // drag a task onto a heading to move it there
     c.appendChild(h);} for(const it of g.items) c.appendChild(rowEl(it)); }
 }
@@ -1107,37 +1197,13 @@ function metaHtml(it){ let m="";
 function rowEl(it){
   const done=it.status==="completed",cancel=it.status==="canceled";
   const row=document.createElement("div"); row.className="row"+(done||cancel?" is-done":"")+(SELECTED.has(it.uuid)?" selected":"");
+  row.dataset.taskId=it.uuid;
   row.onclick=(e)=>{ if(e.shiftKey){ toggleSelect(it.uuid,row); return; } openEdit(it.uuid); };  // shift-click: multi-select
   row.addEventListener("contextmenu",e=>{ e.preventDefault(); taskCtxMenu(it, e.clientX, e.clientY); });
-  row.draggable=true;  // drag onto a sidebar bucket (Today/Anytime/Someday) to reschedule, or a heading to move
+  row.draggable=!canPlaceInList();  // pointer drag works in the in-app browser; other views keep native drag
+  if(!done&&!cancel && canPlaceInList()) pointerListDrag(row,"task",it.uuid);
   row.addEventListener("dragstart",e=>{ e.dataTransfer.setData("text/id",it.uuid); ACTIVE_LIST_DRAG={kind:"task",id:it.uuid}; row.classList.add("dragging"); document.body.classList.add("dragging-task"); });
   row.addEventListener("dragend",()=>{ ACTIVE_LIST_DRAG=null; row.classList.remove("dragging"); document.body.classList.remove("dragging-task"); document.querySelectorAll(".row.drop-before,.row.drop-after").forEach(el=>el.classList.remove("drop-before","drop-after")); });
-  if(MODE==="list" && !CUR_FILTER && LIST_ORDER_SYNCED && LIST_ORDER_WRITABLE && (LIST_KIND==="project" || SEL.id==="inbox") && !done && !cancel){
-    row.addEventListener("dragover",e=>{
-      const magic=ACTIVE_LIST_DRAG?.kind==="magic";
-      const source=ACTIVE_LIST_DRAG?.kind==="task"?ACTIVE_LIST_DRAG.id:null;
-      if(!ACTIVE_LIST_DRAG) return;
-      const from=LIST_ITEMS.find(x=>x.uuid===source);
-      if(!magic && (!from || from.uuid===it.uuid || (from.heading_title||"")!==(it.heading_title||""))) return;
-      e.preventDefault(); e.dataTransfer.dropEffect=magic?"copy":"move";
-      row.classList.toggle("drop-before",e.clientY<row.getBoundingClientRect().top+row.offsetHeight/2);
-      row.classList.toggle("drop-after",!row.classList.contains("drop-before"));
-    });
-    row.addEventListener("dragleave",()=>row.classList.remove("drop-before","drop-after"));
-    row.addEventListener("drop",async e=>{
-      const magic=ACTIVE_LIST_DRAG?.kind==="magic";
-      const source=ACTIVE_LIST_DRAG?.kind==="task"?ACTIVE_LIST_DRAG.id:null;
-      const from=LIST_ITEMS.find(x=>x.uuid===source);
-      row.classList.remove("drop-before","drop-after");
-      if(!magic && (!from || from.uuid===it.uuid || (from.heading_title||"")!==(it.heading_title||""))) return;
-      e.preventDefault(); e.stopPropagation();
-      const before=e.clientY<row.getBoundingClientRect().top+row.offsetHeight/2;
-      if(magic){ openCreate("todo",{list_id:SEL.id,target_id:it.uuid,before}); return; }
-      const r=await postJSON("/api/reorder",{list_id:SEL.id,moved_id:source,target_id:it.uuid,before});
-      if(!r.ok) alert("Things did not confirm the order: "+(r.error||"unknown error"));
-      if(SEL) renderList(SEL,MODE);
-    });
-  }
   const m=metaHtml(it);
   row.innerHTML=`<span class="box ${done?"done":cancel?"cancel":""}"></span><span class="title">${esc(it.title||"(untitled)")}</span>`+(m?`<span class="meta">${m}</span>`:"");
   if(!done&&!cancel){ const box=row.querySelector(".box"); box.title="Complete"; box.style.cursor="pointer";
@@ -2113,14 +2179,9 @@ function wireStatic(){
   const on=(sel,fn)=>{ const el=$(sel); if(el) el.onclick=fn; };
   on("#cmdk-btn",openCmdk);
   on("#add-btn",()=>openCreate("todo"));
-  const addBtn=$("#add-btn"); addBtn.draggable=true;
+  const addBtn=$("#add-btn"); addBtn.draggable=false;
+  pointerListDrag(addBtn,"magic");
   addBtn.title="Click to add a task";
-  addBtn.addEventListener("dragstart",e=>{
-    if(MODE!=="list" || CUR_FILTER || !LIST_ORDER_SYNCED || !LIST_ORDER_WRITABLE || !(LIST_KIND==="project" || SEL?.id==="inbox")){ e.preventDefault(); return; }
-    ACTIVE_LIST_DRAG={kind:"magic"}; e.dataTransfer.setData("application/x-suur-magic-plus","1");
-    e.dataTransfer.effectAllowed="copy"; addBtn.classList.add("dragging");
-  });
-  addBtn.addEventListener("dragend",()=>{ ACTIVE_LIST_DRAG=null; addBtn.classList.remove("dragging"); document.querySelectorAll(".row.drop-before,.row.drop-after").forEach(el=>el.classList.remove("drop-before","drop-after")); });
   on("#prefs-btn",openPrefs);
   on("#about-link",()=>go("#about"));
   on("#rollup-vt",toggleRollupPill);

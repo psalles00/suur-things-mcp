@@ -28,15 +28,15 @@ Two data paths, deliberately split:
 - **Reads** come straight from the local Things SQLite database — instant and complete: Today, Upcoming, Inbox, Anytime, Someday, Logbook, Trash, full-text search, projects, areas, tags, and full item detail.
 - **Field writes** use the official [Things URL Scheme](https://culturedcode.com/things/support/articles/2803573/). This local fork selects tasks with AppleScript and uses Things' native Move Up/Down keyboard shortcuts for exact ordering in Inbox and projects.
 
-**Why this matters:** Cultured Code's [AI-integration guidance](https://culturedcode.com/things/support/articles/5510170/) says direct database writes are unsafe. This fork never writes to SQLite. Ordering depends on macOS Accessibility access and Things' [Move Up/Down shortcuts](https://culturedcode.com/things/support/articles/2785159/).
+**Why this matters:** Cultured Code's [AI-integration guidance](https://culturedcode.com/things/support/articles/5510170/) says direct database writes are unsafe. This fork never writes to SQLite. Ordering depends on macOS Accessibility access for the dedicated [SUUR Order helper](extras/suur-order/README.md) and Things' [Move Up/Down shortcuts](https://culturedcode.com/things/support/articles/2785159/).
 
-The dashboard accepts task reordering only within one heading, moves the selected task in Things, then reads the order back. If Things does not confirm the result, the dashboard reports an error. Dragging the Magic Plus creates a task through the URL Scheme before positioning it; if positioning fails, the task remains created and the dashboard says so. Grant **SUUR Dashboard** access in macOS System Settings > Privacy & Security > Device Control and Data Access (Accessibility on older macOS versions) before using either drag operation.
+The dashboard accepts task reordering only within one heading, moves the selected task in Things, then reads the order back. If Things does not confirm the result, the dashboard reports an error. Dragging the Magic Plus creates a task through the URL Scheme before positioning it; if positioning fails, the task remains created and the dashboard says so. Install **SUUR Order** with `zsh extras/suur-order/install.sh`, then grant that helper access in macOS System Settings > Privacy & Security > Device Control and Data Access (Accessibility on older macOS versions) before using either drag operation.
 
 > **Privacy:** an agent connected to this server can read your to-do and note content, which is then sent to whatever model you're using. Review your agent's privacy policy. Nothing here phones home; there's no telemetry and no bundled LLM.
 
 ### Why not direct DB writes?
 
-Because Cultured Code says direct SQLite writes are unsafe. Reads use read-only connections; field changes use `things:///` URLs. The dashboard orders tasks by driving Things' native shortcuts through AppleScript and System Events.
+Because Cultured Code says direct SQLite writes are unsafe. Reads use read-only connections; field changes use `things:///` URLs. The dashboard orders tasks through the SUUR Order helper, which selects a task with AppleScript and sends Things' native keyboard shortcuts.
 
 ---
 
@@ -60,7 +60,7 @@ Because Cultured Code says direct SQLite writes are unsafe. Reads use read-only 
 **Capture, find & tidy**
 - ⌘ **Command palette (⌘K)** — jump to any list/project/board, search tasks, create, switch view, and act on a task (complete / reschedule / move) — all keyboard-only.
 - ➕ **Natural-language quick-add** — type `buy milk tomorrow #errand` and it's parsed into a real to-do.
-- ↕ **Native task order (local fork)** — in a project or Inbox, drag a task beside another task in the same heading, or drag the top-right Plus onto a row to create there. The panel reads the order back from Things. Requires macOS Accessibility permission for SUUR Dashboard and briefly brings Things to the foreground.
+- ↕ **Native task order (local fork)** — in a project or Inbox, drag a task beside another task in the same heading, or drag the top-right Plus onto a row to create there. The panel reads the order back from Things. Requires macOS Accessibility permission for SUUR Order.
 - ◉ **Optional macOS menu bar utility** — shows whether the local dashboard is running and provides open/copy shortcuts. [Source and installation](extras/suur-menu/README.md).
 - ◌ **Dedicated login app** — runs the dashboard under its own macOS app identity so its Things database access can be granted separately from Homebrew Python. [Setup and token instructions](extras/suur-dashboard/README.md).
 - 🧹 **Agent triage** — *Triage Inbox* (propose a home + tags + date per item) and *Organize* (tidy titles/notes/tags). Your agent proposes; you review every change before anything is written.
@@ -291,7 +291,7 @@ Three tiers — important if you switch machines:
 └──────────────┘                                 └──────────────────────────┘
 ```
 
-Reads use [`things.py`](https://github.com/thingsapi/things.py), which opens the DB read-only. Field writes are built and URL-encoded in [`urlscheme.py`](src/suur_things_mcp/urlscheme.py) and fired with `open -g`. Exact order uses Things AppleScript via [`native_order.py`](src/suur_things_mcp/native_order.py). The dashboard is a single self-contained Starlette app (no build step, no external JS) served from [`dashboard.py`](src/suur_things_mcp/dashboard.py).
+Reads use [`things.py`](https://github.com/thingsapi/things.py), which opens the DB read-only. Field writes are built and URL-encoded in [`urlscheme.py`](src/suur_things_mcp/urlscheme.py) and fired with `open -g`. Exact order uses the [SUUR Order helper](extras/suur-order/README.md) through [`native_order.py`](src/suur_things_mcp/native_order.py). The dashboard is a single self-contained Starlette app (no build step, no external JS) served from [`dashboard.py`](src/suur_things_mcp/dashboard.py).
 
 **The server stays dumb on purpose.** It returns clean structured data and ships packaged prompts; the judgment (prioritize, triage, synthesize) lives in *your* agent, not a hardcoded rules engine. There is no bundled model and no API key.
 
