@@ -804,7 +804,7 @@ function enterTaskScreen(t){
   ckSub([
     {label:"← Back", _back:true, run:backToMain},
     {label:"Open in card", hint:t.title, run:()=>{closeCmdk(); openEdit(t.uuid);}},
-    {label:"✓ Complete", run:()=>{ applyStatus(t.uuid,"completed").then(ok=>{ if(ok){ closeCmdk(); setTimeout(route,300);} }); }},
+    {label:"✓ Complete", run:()=>{ applyStatus(t.uuid,"completed").then(ok=>{ if(ok){ closeCmdk(); rerenderCurrent(); } }); }},
     {label:"Schedule → Today", run:()=>{closeCmdk(); reschedule(t.uuid,"today");}},
     {label:"Schedule → Tomorrow", run:()=>{closeCmdk(); reschedule(t.uuid,"tomorrow");}},
     {label:"Schedule → Anytime", run:()=>{closeCmdk(); reschedule(t.uuid,"anytime");}},
@@ -825,7 +825,7 @@ async function moveTask(id, listId){
   if(!AUTH){ alert("Set THINGS_AUTH_TOKEN to move tasks."); return; }
   const r=await postJSON("/api/update", {id, list_id:listId});
   if(!r.ok){ alert("Move failed: "+(r.error||"")); return; }
-  loadSidebar(); setTimeout(route,300);
+  refreshAfterWrite();
 }
 function ckDraw(){
   const box=$("#cmdk-list"); box.innerHTML="";
@@ -857,7 +857,7 @@ async function loadSidebar(){
   SIDEBAR=data.sidebar; renderSidebar();
 }
 function renderSidebar(){
-  const el=$("#side-nav"); el.innerHTML="";
+  const el=$("#side-nav"), oldScroll=el.scrollTop; el.innerHTML="";
   const bi=SIDEBAR.builtins, tIdx=bi.findIndex(b=>b.id==="today");
   bi.slice(0,tIdx+1).forEach(b=>el.appendChild(builtinEl(b)));
   const pri=document.createElement("div"); pri.className="nav-item"; pri.dataset.id="priority";
@@ -897,6 +897,7 @@ function renderSidebar(){
   el.appendChild(Object.assign(document.createElement("div"),{className:"side-sep"}));
   bi.filter(b=>["logbook","trash"].includes(b.id)).forEach(b=>el.appendChild(builtinEl(b)));  // Logbook + Trash last
   setActive(CURRENT_ID);
+  el.scrollTop=oldScroll;
 }
 function toggleArea(uuid, chev){ COLLAPSED.has(uuid)?COLLAPSED.delete(uuid):COLLAPSED.add(uuid);
   localStorage.setItem("collapsed-areas", JSON.stringify([...COLLAPSED]));
@@ -929,6 +930,7 @@ function resolveList(id){
 
 // --- list view ---
 let LIST_ITEMS=[], LIST_KIND="", LIST_NOTES=null, CUR_FILTER=null, LIST_ROLLUP=true, LIST_ORDER_SYNCED=false, LIST_ORDER_WRITABLE=false, LIST_ORDER_ERROR="";
+let CONTENT_REQUEST=0;
 let ACTIVE_LIST_DRAG=null;
 let SUPPRESS_DRAG_CLICK=false;
 document.addEventListener("click",e=>{
@@ -954,7 +956,6 @@ function pointerListDrag(source, kind, taskId=null){
     if(e.button!==0 || !canPlaceInList() || e.target.closest(".box")) return;
     const startX=e.clientX, startY=e.clientY, pointerId=e.pointerId;
     let moving=false, ghost=null;
-    source.setPointerCapture(pointerId);
     const move=ev=>{
       if(ev.pointerId!==pointerId) return;
       if(!moving && Math.hypot(ev.clientX-startX,ev.clientY-startY)<6) return;
@@ -983,9 +984,8 @@ function pointerListDrag(source, kind, taskId=null){
     };
     const end=async ev=>{
       if(ev.pointerId!==pointerId) return;
-      source.removeEventListener("pointermove",move); source.removeEventListener("pointerup",end);
-      source.removeEventListener("pointercancel",cancel);
-      if(source.hasPointerCapture(pointerId)) source.releasePointerCapture(pointerId);
+      window.removeEventListener("pointermove",move); window.removeEventListener("pointerup",end);
+      window.removeEventListener("pointercancel",cancel);
       if(!moving) return;
       SUPPRESS_DRAG_CLICK=true; setTimeout(()=>{ SUPPRESS_DRAG_CLICK=false; },0);
       const row=pointerTarget(".row[data-task-id]",ev.clientX,ev.clientY);
@@ -1008,14 +1008,16 @@ function pointerListDrag(source, kind, taskId=null){
     };
     const cancel=ev=>{
       if(ev.pointerId!==pointerId) return;
-      source.removeEventListener("pointermove",move); source.removeEventListener("pointerup",end);
-      source.removeEventListener("pointercancel",cancel); clearPointerDrag(source,ghost);
+      window.removeEventListener("pointermove",move); window.removeEventListener("pointerup",end);
+      window.removeEventListener("pointercancel",cancel); clearPointerDrag(source,ghost);
     };
-    source.addEventListener("pointermove",move); source.addEventListener("pointerup",end);
-    source.addEventListener("pointercancel",cancel);
+    window.addEventListener("pointermove",move); window.addEventListener("pointerup",end);
+    window.addEventListener("pointercancel",cancel);
   });
 }
 async function renderList(sel, view="list"){
+  const request=++CONTENT_REQUEST;
+  const retain=MODE===view && SEL?.id===sel.id;
   const matrix=view==="matrix", levels=view==="levels", cards=view==="cards", timeline=view==="timeline";
   MODE=view; CUR_BOARD=null; SEL=sel;
   if(LAST_LIST_ID!==sel.id){ clearSelection(); LAST_LIST_ID=sel.id; }
@@ -1026,8 +1028,11 @@ async function renderList(sel, view="list"){
   $("#viewtog").classList.add("show");
   $("#vt-list").classList.toggle("on",view==="list"); $("#vt-matrix").classList.toggle("on",matrix); $("#vt-levels").classList.toggle("on",levels); $("#vt-cards").classList.toggle("on",cards); $("#vt-timeline").classList.toggle("on",timeline);
   $(".main").classList.toggle("fill", matrix||levels||timeline);
-  const c=$("#content"); $("#filterbar").classList.remove("show"); c.innerHTML=`<div class="empty loading">loading…</div>`;
+  const c=$("#content"), oldScroll=retain?c.scrollTop:0;
+  $("#filterbar").classList.remove("show");
+  if(!retain) c.innerHTML=`<div class="empty loading">loading…</div>`;
   const data=await getJSON("/api/items?id="+encodeURIComponent(sel.id));
+  if(request!==CONTENT_REQUEST) return;
   if(!data.ok){ c.innerHTML=`<div class="err">${esc(data.error||"error")}</div>`; return; }
   LIST_ITEMS=data.items; LIST_KIND=data.kind; LIST_NOTES=data.notes||null; CUR_FILTER=null; LIST_ROLLUP=data.rollup!==false;
   LIST_ORDER_SYNCED=data.order_synced===true; LIST_ORDER_WRITABLE=data.order_writable===true; LIST_ORDER_ERROR=data.order_error||"";
@@ -1042,7 +1047,8 @@ async function renderList(sel, view="list"){
   else if(cards){ renderCards(LIST_ITEMS); }
   else if(timeline){ renderTimeline(LIST_ITEMS); }
   else { buildFilterBar(); renderRows(); }
-  contentIn();
+  if(retain){ c.scrollTop=oldScroll; c.classList.remove("swap-in"); }
+  else contentIn();
 }
 function setListView(v){ if(SEL) go("#l/"+encodeURIComponent(SEL.id)+(v==="matrix"?"/m":v==="levels"?"/p":v==="cards"?"/c":v==="timeline"?"/t":"")); }
 function areaProjects(areaId){ const a=((SIDEBAR&&SIDEBAR.areas)||[]).find(x=>x.uuid===areaId); return a?a.projects:[]; }
@@ -1186,7 +1192,7 @@ async function moveToHeading(uuid, heading){
   const it=(LIST_ITEMS||[]).find(x=>x.uuid===uuid); if(it && (it.heading_title||"")===(heading||"")) return;  // already there (top == "")
   const r=await postJSON("/api/update", {id:uuid, heading});
   if(!r.ok){ alert("Move failed: "+(r.error||"")); return; }
-  if(SEL) setTimeout(()=>renderList(SEL, MODE), 350);   // re-fetch so it shows under its new heading
+  refreshAfterWrite();
 }
 function metaHtml(it){ let m="";
   if(((CONFIG.attachments||{})[it.uuid]||[]).length) m+=`<span class="att-ico" title="Has an image attachment">${SVG.image}</span>`;
@@ -1214,21 +1220,26 @@ function rowEl(it){
 
 // --- board view ---
 async function renderBoard(id){
+  const request=++CONTENT_REQUEST;
+  const retain=MODE==="board" && CUR_BOARD===id;
   MODE="board"; CUR_BOARD=id; setActive(id);
   $(".main").classList.add("fill"); $("#board-gear").style.display="flex"; $("#organize-btn").style.display="none";
   $("#filterbar").classList.remove("show"); $("#viewtog").classList.remove("show");
   const b=CONFIG.boards.find(x=>x.id===id);
   $("#head-ico").innerHTML=SVG.board; $("#head-title").textContent=b?b.name:"Board";
   setHeadEditable(b?"board":null, b?b.id:null);
-  const c=$("#content"); c.innerHTML=`<div class="empty loading">loading…</div>`;
+  const c=$("#content"), oldScroll=retain?c.scrollTop:0;
+  if(!retain) c.innerHTML=`<div class="empty loading">loading…</div>`;
   const data=await getJSON("/api/board?id="+encodeURIComponent(id));
+  if(request!==CONTENT_REQUEST) return;
   if(!data.ok){ c.innerHTML=`<div class="err">${esc(data.error||"error")}</div>`; return; }
   c.innerHTML="";
   const wrap=document.createElement("div"); wrap.className="board-wrap";
   if(!data.columns.length) wrap.innerHTML=`<div class="empty">No columns yet. Open ⚙ to add stages and include projects/areas.</div>`;
   for(const col of data.columns) wrap.appendChild(boardColEl(col,id));
   c.appendChild(wrap);
-  contentIn();
+  if(retain){ c.scrollTop=oldScroll; c.classList.remove("swap-in"); }
+  else contentIn();
 }
 function boardColEl(col,boardId){
   const c=document.createElement("div"); c.className="col";
@@ -1343,14 +1354,19 @@ function settleCard(sel){
 // Quadrant assignment lives in the global CONFIG.priority map keyed by task uuid,
 // so a task's priority is the same wherever it appears (Today, its project, etc).
 async function renderPriority(){
-  MODE="matrix"; CUR_BOARD=null; setActive("priority");
+  const request=++CONTENT_REQUEST;
+  const retain=MODE==="matrix" && SEL===null;
+  MODE="matrix"; CUR_BOARD=null; SEL=null; setActive("priority");
   $(".main").classList.add("fill"); $("#board-gear").style.display="none"; $("#organize-btn").style.display="none";
   $("#filterbar").classList.remove("show"); $("#viewtog").classList.remove("show");
   $("#head-ico").innerHTML=SVG.priority; $("#head-title").textContent="Priority Matrix"; setHeadEditable(null);
-  const c=$("#content"); c.innerHTML=`<div class="empty loading">loading…</div>`;
+  const c=$("#content"), oldScroll=retain?c.scrollTop:0;
+  if(!retain) c.innerHTML=`<div class="empty loading">loading…</div>`;
   const data=await getJSON("/api/items?id=today");
+  if(request!==CONTENT_REQUEST) return;
   LIST_ITEMS=data.ok?data.items:[]; LIST_KIND="builtin"; renderMatrix(LIST_ITEMS);
-  contentIn();
+  if(retain){ c.scrollTop=oldScroll; c.classList.remove("swap-in"); }
+  else contentIn();
 }
 function renderMatrix(items){
   const c=$("#content"); c.innerHTML="";
@@ -1418,15 +1434,20 @@ function levelTagSet(){ const s=new Set(); for(const l of plevels()) for(const t
 function levelOf(item){ const tags=item.tags||[]; const L=plevels();
   for(let i=0;i<L.length;i++){ if(L[i].tags.some(t=>tags.includes(t))) return i; } return -1; }
 async function renderLevels(){
+  const request=++CONTENT_REQUEST;
+  const retain=MODE==="levels" && SEL===null;
   MODE="levels"; CUR_BOARD=null; SEL=null; setActive("levels");
   $(".main").classList.add("fill"); $("#board-gear").style.display="none"; $("#organize-btn").style.display="none";
   $("#levels-gear").style.display="flex";
   $("#filterbar").classList.remove("show"); $("#viewtog").classList.remove("show");
   $("#head-ico").innerHTML=SVG.levels; $("#head-title").textContent="Priority Levels"; setHeadEditable(null);
-  const c=$("#content"); c.innerHTML=`<div class="empty loading">loading…</div>`;
+  const c=$("#content"), oldScroll=retain?c.scrollTop:0;
+  if(!retain) c.innerHTML=`<div class="empty loading">loading…</div>`;
   const data=await getJSON("/api/items?id=today");
+  if(request!==CONTENT_REQUEST) return;
   LIST_ITEMS=data.ok?data.items:[]; LIST_KIND="builtin"; renderLevelBands();
-  contentIn();
+  if(retain){ c.scrollTop=oldScroll; c.classList.remove("swap-in"); }
+  else contentIn();
 }
 function renderLevelBands(){
   const c=$("#content"); c.innerHTML="";
@@ -1756,7 +1777,7 @@ async function createFromCard(){
     }
     if(EDIT_PLACEMENT && !r.positioned) placementNotice=r.error||"Task created, but Things did not confirm its exact position.";
     EDIT_PLACEMENT=null;
-    clearPending(); closeOverlay("edit-overlay"); loadSidebar(); setTimeout(route,400);
+    clearPending(); closeOverlay("edit-overlay"); refreshAfterWrite();
   }catch(e){
     alert("Add failed: "+(e&&e.message||e));   // a thrown fetch used to fail silently → "nothing happens"
   }finally{
@@ -1850,6 +1871,7 @@ async function saveEdit(){
 // full refresh logs it — like Things, instead of vanishing instantly.
 async function applyStatus(uuid, field){
   if(!AUTH){ alert("Set THINGS_AUTH_TOKEN to check off tasks."); return false; }
+  ++CONTENT_REQUEST;  // discard a list response started before this write
   const body={id:uuid}; body[field]=true;
   const r=await postJSON("/api/update", body);
   if(!r.ok){ alert("Update failed: "+(r.error||"")); return false; }
@@ -1857,12 +1879,14 @@ async function applyStatus(uuid, field){
   loadSidebar(); return true;   // refresh counts; the item stays in LIST_ITEMS until next full fetch
 }
 function rerenderCurrent(){
-  if(MODE==="levels") return renderLevelBands();
-  if(MODE==="cards") return renderCards(LIST_ITEMS);
-  if(MODE==="matrix"){ let items=LIST_ITEMS.slice();
+  const c=$("#content"), top=c?.scrollTop||0;
+  if(MODE==="levels") renderLevelBands();
+  else if(MODE==="cards") renderCards(LIST_ITEMS);
+  else if(MODE==="matrix"){ let items=LIST_ITEMS.slice();
     if(LIST_KIND==="area") items=areaProjects(SEL.id).map(p=>({uuid:p.uuid,title:p.title,progress:p.progress,_proj:true})).concat(items);
-    return renderMatrix(items); }
-  if(MODE==="list") return renderRows();
+    renderMatrix(items); }
+  else if(MODE==="list") renderRows();
+  if(c) c.scrollTop=top;
 }
 async function completeTask(){
   const b=$("#ec-box"); if(b) b.classList.add("done");   // optimistic fill
@@ -1871,9 +1895,17 @@ async function completeTask(){
 }
 async function cancelTask(){ if(await applyStatus(EDIT_ID,"canceled")){ closeOverlay("edit-overlay"); rerenderCurrent(); } }
 async function postUpdate(body){
+  ++CONTENT_REQUEST;  // a fetch started before this edit must not replace the edited row
   const r=await postJSON("/api/update", body);
   if(!r.ok){ alert("Update failed: "+(r.error||"")); return; }
-  closeOverlay("edit-overlay"); setTimeout(route,350);   // re-render current view
+  const it=(LIST_ITEMS||[]).find(x=>x.uuid===body.id);
+  if(it){
+    if(body.title!==undefined) it.title=body.title;
+    if(body.notes!==undefined) it.has_notes=!!body.notes;
+    if(body.tags!==undefined) it.tags=body.tags;
+    if(body.deadline!==undefined) it.deadline=body.deadline;
+  }
+  closeOverlay("edit-overlay"); rerenderCurrent(); refreshAfterWrite();
 }
 function openInThings(){ if(EDIT_ID) window.location.href="things:///show?id="+encodeURIComponent(EDIT_ID); }
 
@@ -2042,6 +2074,7 @@ async function commitHeadRename(){
 })();
 
 function renderAbout(){
+  ++CONTENT_REQUEST;
   MODE="about"; CUR_BOARD=null;
   document.querySelectorAll(".nav-item,.area-head,.project").forEach(n=>n.classList.remove("active"));
   const al=$("#about-link"); if(al) al.classList.add("active");
@@ -2056,7 +2089,7 @@ async function reschedule(id, when){
   if(!AUTH){ alert("Set THINGS_AUTH_TOKEN to reschedule by drag."); return; }
   const r=await postJSON("/api/update", {id, when});
   if(!r.ok){ alert("Reschedule failed: "+(r.error||"")); return; }
-  loadSidebar(); setTimeout(route, 300);
+  refreshAfterWrite();
 }
 
 // --- multi-select (shift-click rows) + batch actions ---
@@ -2094,7 +2127,7 @@ async function batchUpdate(fields){
   if(!AUTH){ alert("Set THINGS_AUTH_TOKEN to edit tasks."); return; }
   const ids=[...SELECTED]; if(!ids.length) return;
   for(const id of ids) await postJSON("/api/update", Object.assign({id}, fields));
-  clearSelection(); loadSidebar(); setTimeout(route,350);
+  clearSelection(); refreshAfterWrite();
 }
 function enterBatchMoveScreen(){
   const targets=[{label:"← Back", _back:true, run:closeCmdk}];
@@ -2145,6 +2178,7 @@ function contentIn(){
 
 // --- auto-refresh: poll the live view, but never interrupt the user ---
 function canAutoRefresh(){
+  if(WRITE_REFRESH_PENDING) return false;
   if(document.hidden) return false;                       // background tab
   if(document.querySelector(".overlay.show")) return false; // editing / organizing / prefs
   if(document.querySelector(".dragging")) return false;     // mid drag
@@ -2155,6 +2189,33 @@ function canAutoRefresh(){
   return MODE==="list"||MODE==="matrix"||MODE==="board"||MODE==="timeline";
 }
 let LAST_CURSOR=null;
+let WRITE_REFRESH_PENDING=false, WRITE_REFRESH_SEQ=0;
+function refreshAfterWrite(){
+  const seq=++WRITE_REFRESH_SEQ, previous=LAST_CURSOR;
+  WRITE_REFRESH_PENDING=true;
+  // Things applies URL commands asynchronously. Keep the current view visible
+  // while waiting for its database cursor to change instead of sleeping a fixed
+  // 300–400 ms and blanking the content. The deadline covers a missed cursor.
+  (async()=>{
+    try{
+      const deadline=Date.now()+1200;
+      while(Date.now()<deadline){
+        const d=await getJSON("/api/cursor");
+        if(seq!==WRITE_REFRESH_SEQ) return;
+        if(d.ok && d.cursor && (!previous || d.cursor!==previous)){
+          LAST_CURSOR=d.cursor; break;
+        }
+        await new Promise(resolve=>setTimeout(resolve,80));
+      }
+      if(seq!==WRITE_REFRESH_SEQ) return;
+      await loadSidebar();
+      if(seq!==WRITE_REFRESH_SEQ) return;
+      await route();
+    }finally{
+      if(seq===WRITE_REFRESH_SEQ) WRITE_REFRESH_PENDING=false;
+    }
+  })();
+}
 async function softRefresh(){
   // Cheap change check first: /api/cursor stats the DB/WAL/config files without
   // reading them. Unchanged → skip the reload entirely (no flicker, no DB scans).
@@ -2165,10 +2226,9 @@ async function softRefresh(){
       LAST_CURSOR=c0.cursor;
     }
   }catch(e){}  // cursor endpoint hiccup → fall through to a normal refresh
-  const c=$("#content"); const top=c?c.scrollTop:0;
-  SILENT_UNTIL=Date.now()+1500;   // a background refresh must be invisible (no entrance fade)
-  loadSidebar(); route();
-  setTimeout(()=>{ const cc=$("#content"); if(cc) cc.scrollTop=top; }, 280);  // keep scroll
+  SILENT_UNTIL=Date.now()+1500;
+  await loadSidebar();
+  await route();
 }
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden && canAutoRefresh()) softRefresh(); });
 
