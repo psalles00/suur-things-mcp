@@ -160,7 +160,7 @@ def project_headings(project_id: str) -> list[dict[str, str]]:
     con = sqlite3.connect(_db_uri(immutable=False), uri=True)
     try:
         return [{"uuid": uuid, "title": title} for uuid, title in con.execute(
-            "SELECT uuid, title FROM TMTask WHERE type=2 AND project=? AND trashed=0 "
+            "SELECT uuid, title FROM TMTask WHERE type=2 AND project=? AND status=0 AND trashed=0 "
             "ORDER BY `index`",
             (project_id,),
         )]
@@ -187,6 +187,7 @@ def _card(item: dict) -> dict:
         "status": item.get("status"),
         "type": item.get("type"),
         "project_title": item.get("project_title"),
+        "heading": item.get("heading"),
         "heading_title": item.get("heading_title"),
         "area_title": item.get("area_title"),
         "deadline": item.get("deadline"),

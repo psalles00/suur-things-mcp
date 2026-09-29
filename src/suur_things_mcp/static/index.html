@@ -1315,7 +1315,7 @@ function renderRows(){
     }
   }
   const key=LIST_KIND==="project"?"heading_title":"project_title";
-  const groups=LIST_KIND==="project"?groupConsecutive(items,key):groupBy(items,key).sort((a,b)=>(a.key?1:0)-(b.key?1:0));
+  const groups=LIST_KIND==="project"?projectGroups(items,LIST_HEADINGS):groupBy(items,key).sort((a,b)=>(a.key?1:0)-(b.key?1:0));
   // For a project with headings, a "no heading" drop zone (visible only while dragging)
   // lets you pull a task back out to the top of the project.
   if(LIST_KIND==="project" && groups.some(g=>g.key)){
@@ -1325,13 +1325,6 @@ function renderRows(){
   for(const g of groups){ if(g.key){ const h=document.createElement("div"); h.className="grp-head"; h.dataset.heading=g.key; h.textContent=g.key;
     if(LIST_KIND==="project") headingDrop(h, g.key);   // drag a task onto a heading to move it there
     c.appendChild(h);} for(const it of g.items) c.appendChild(rowEl(it)); }
-  if(LIST_KIND==="project" && !CUR_FILTER){
-    const shown=new Set(groups.map(g=>g.key).filter(Boolean));
-    for(const heading of LIST_HEADINGS){ if(shown.has(heading.title)) continue;
-      const h=document.createElement("div"); h.className="grp-head"; h.dataset.heading=heading.title; h.textContent=heading.title;
-      headingDrop(h,heading.title); c.appendChild(h);
-    }
-  }
 }
 function emptyStateEl(){
   const e=document.createElement("div"); e.className="empty";
@@ -1346,11 +1339,19 @@ function emptyStateEl(){
 }
 function groupBy(items,key){ const g=[],idx={};
   for(const it of items){ const k=it[key]||"\u0000"; if(!(k in idx)){idx[k]=g.length; g.push({key:it[key]||null,items:[]});} g[idx[k]].items.push(it);} return g; }
-function groupConsecutive(items,key){ const groups=[];
-  for(const it of items){ const value=it[key]||null; const last=groups[groups.length-1];
-    if(last && last.key===value) last.items.push(it);
-    else groups.push({key:value,items:[it]}); }
-  return groups; }
+function projectGroups(items,headings){
+  const groups=[{key:null,items:[]}], byId=new Map();
+  for(const h of headings){ const group={key:h.title,id:h.uuid,items:[]}; groups.push(group); byId.set(h.uuid,group); }
+  const missing=new Map();
+  for(const it of items){
+    if(!it.heading){ groups[0].items.push(it); continue; }
+    let group=byId.get(it.heading);
+    if(!group){ group=missing.get(it.heading);
+      if(!group){ group={key:it.heading_title||"Heading",id:it.heading,items:[]}; missing.set(it.heading,group); groups.push(group); } }
+    group.items.push(it);
+  }
+  return groups.filter(g=>g.key||g.items.length);
+}
 // Drop a task row onto a project heading → move it under that heading (URL Scheme `heading`).
 function headingDrop(el, heading){
   el.addEventListener("dragover",e=>{ e.preventDefault(); el.classList.add("drop"); });
@@ -2387,8 +2388,8 @@ function fivePatch(id,patch){
   for(const day of FIVE_DATA.days) for(const it of day.items) if(it.uuid===id) Object.assign(it,patch);
   for(const list of Object.values(FIVE_DATA.lists)) for(const it of (list?.items||[])) if(it.uuid===id) Object.assign(it,patch);
 }
-function fiveAppendRows(col,items,key,source){
-  const groups=key==="heading_title"?groupConsecutive(items,key):groupBy(items,key);
+function fiveAppendRows(col,items,key,source,headings=[]){
+  const groups=key==="heading_title"?projectGroups(items,headings):groupBy(items,key);
   for(const group of groups){
     if(group.key){ const h=document.createElement("div"); h.className="five-group";
       const title=document.createElement("span"); title.textContent=group.key; title.title=group.key; h.appendChild(title);
@@ -2458,12 +2459,7 @@ function fivePaint(){
       const body=document.createElement("div"); body.className="five-col-body";
       if(data && !data.ok){ const e=document.createElement("div"); e.className="five-error"; e.textContent=data.error||"Could not read project"; body.appendChild(e); }
       else if(data){ const items=(data.items||[]).filter(it=>!prefs.hide_scheduled || !it.start_date);
-        fiveAppendRows(body,items,"heading_title",{kind:"project",id});
-        const shown=new Set(items.map(it=>it.heading_title).filter(Boolean));
-        for(const heading of (data.headings||[])){ if(shown.has(heading.title)) continue;
-          const h=document.createElement("div"); h.className="five-group"; h.dataset.fiveHeading=heading.title;
-          const label=document.createElement("span"); label.textContent=heading.title; label.title=heading.title; h.appendChild(label); body.appendChild(h);
-        }
+        fiveAppendRows(body,items,"heading_title",{kind:"project",id},data.headings||[]);
         if(!items.length && !(data.headings||[]).length){ const e=document.createElement("div"); e.className="five-empty"; e.textContent="No unscheduled tasks"; body.appendChild(e); }
         if(data.order_synced===false){ const e=document.createElement("div"); e.className="five-error"; e.textContent="Native order unavailable; precise drops are disabled."; body.appendChild(e); }
       } else { const e=document.createElement("div"); e.className="five-empty"; e.textContent="Loading…"; body.appendChild(e); }
