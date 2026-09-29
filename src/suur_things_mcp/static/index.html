@@ -2560,14 +2560,16 @@ function fivePaint(){
       open.onclick=()=>fiveOpenInThings(id);
       head.append(open,add); col.appendChild(head);
       const body=document.createElement("div"); body.className="five-col-body";
-      if(id===embeddedHost) fiveAppendInboxSection(body,prefs);
       if(data && !data.ok){ const e=document.createElement("div"); e.className="five-error"; e.textContent=data.error||"Could not read project"; body.appendChild(e); }
       else if(data){ const items=(data.items||[]).filter(it=>!prefs.hide_scheduled || !it.start_date);
         fiveAppendRows(body,items,"heading_title",{kind:"project",id},data.headings||[]);
-        if(!items.length && !(data.headings||[]).length){ const e=document.createElement("div"); e.className="five-empty"; e.textContent="No unscheduled tasks"; body.appendChild(e); }
+        if(!items.length && !(data.headings||[]).length && id!==embeddedHost){ const e=document.createElement("div"); e.className="five-empty"; e.textContent="No unscheduled tasks"; body.appendChild(e); }
         if(data.order_synced===false){ const e=document.createElement("div"); e.className="five-error"; e.textContent="Native order unavailable; precise drops are disabled."; body.appendChild(e); }
       } else { const e=document.createElement("div"); e.className="five-empty"; e.textContent="Loading…"; body.appendChild(e); }
-      const lines=document.createElement("div"); lines.className="five-lines"; fiveActivateBlankLines(lines); body.appendChild(lines);
+      if(id===embeddedHost) fiveAppendInboxSection(body,prefs);
+      const lines=document.createElement("div"); lines.className="five-lines";
+      if(id===embeddedHost) lines.dataset.fiveInboxLines="1";
+      fiveActivateBlankLines(lines); body.appendChild(lines);
       col.appendChild(body);
     } else { const b=document.createElement("button"); b.className="five-placeholder"; b.textContent="＋ CHOOSE A LIST";
       b.onclick=fiveOpenPicker; col.appendChild(b); }
@@ -2628,12 +2630,16 @@ function fiveClearDrop(){
     el.classList.remove("five-drop","five-drop-before","five-drop-after"));
 }
 function fiveDropTarget(x,y){
-  const at=document.elementFromPoint(x,y), row=at?.closest(".five-shell .row[data-task-id]");
+  const at=document.elementFromPoint(x,y); let row=at?.closest(".five-shell .row[data-task-id]");
   const date=at?.closest(".five-datecol[data-five-date]");
   const project=at?.closest(".five-listcol[data-five-project]");
-  const embeddedInbox=at?.closest(".five-embedded-inbox");
+  const embeddedInbox=at?.closest(".five-embedded-inbox,.five-lines[data-five-inbox-lines]");
   const heading=at?.closest(".five-group[data-five-heading]");
   const line=at?.closest(".five-lines");
+  if(!row && line?.dataset.fiveInboxLines){
+    const inboxRows=line.previousElementSibling?.querySelectorAll(".row[data-task-id]");
+    row=inboxRows?.[inboxRows.length-1]||null;
+  }
   if(!date && !project) return null;
   return {row,date:date?.dataset.fiveDate,project:embeddedInbox?"inbox":project?.dataset.fiveProject,
           heading:heading?.dataset.fiveHeading,headingId:heading?.dataset.fiveHeadingId,
@@ -2660,6 +2666,9 @@ function fiveCreateAtTarget(target){
     if(!row && target.line){
       const last=target.line.previousElementSibling;
       if(last?.matches(".row[data-task-id]")){ row=last; before=false; }
+      else if(destination==="inbox" && last?.matches(".five-embedded-inbox")){
+        const inboxRows=last.querySelectorAll(".row[data-task-id]");
+        row=inboxRows[inboxRows.length-1]; before=false; }
       const headings=target.column.querySelectorAll(".five-group[data-five-heading-id]");
       if(headings.length) headingId=headings[headings.length-1].dataset.fiveHeadingId;
     }
