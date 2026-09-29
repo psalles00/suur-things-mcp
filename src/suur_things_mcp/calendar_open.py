@@ -19,7 +19,11 @@ function run(argv) {
     var app = Application("Calendar");
     var calendars = app.calendars.whose({name: calendarName})();
     if (calendars.length !== 1) throw new Error("Calendar name is ambiguous or unavailable");
-    var events = calendars[0].events.whose({summary: title})();
+    var events = calendars[0].events.whose({
+        summary: title,
+        startDate: {_lessThan: next},
+        endDate: {_greaterThan: day}
+    })();
     function hhmm(date) {
         return ("0" + date.getHours()).slice(-2) + ":" + ("0" + date.getMinutes()).slice(-2);
     }
