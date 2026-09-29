@@ -471,8 +471,8 @@
   .five-days-grid, .five-lists-grid { min-width:max(1050px,calc(var(--five-visible,5) * 200px)); display:grid;
     grid-template-columns:repeat(var(--five-visible,5),minmax(0,1fr));
     column-gap:clamp(24px,4vw,80px); padding-left:clamp(30px,3.4vw,68px); padding-right:clamp(30px,2.3vw,46px); }
-  .five-days-grid { width:100%; min-height:max(250px,50vh); padding-top:17px; padding-bottom:20px; }
-  .five-lists-grid { width:100%; min-height:max(220px,40vh); padding-top:44px; padding-bottom:24px; }
+  .five-days-grid { width:100%; padding-top:17px; padding-bottom:20px; }
+  .five-lists-grid { width:100%; padding-top:44px; padding-bottom:24px; }
   .five-lists-grid.is-wide { width:max-content; grid-template-columns:repeat(var(--five-count),var(--five-col-width,312px)); }
   .five-datecol, .five-listcol { min-width:0; min-height:0; display:flex; flex-direction:column; }
   .five-datehead { flex:0 0 76px; min-width:0; }
@@ -483,7 +483,7 @@
   .five-list-action:hover, .five-list-action:focus-visible { color:var(--text); background:#e5e6e9; }
   html[data-theme="dark"] .five-list-action:hover, html[data-theme="dark"] .five-list-action:focus-visible { background:#343a42; }
   .five-list-action svg { width:16px; height:16px; }
-  .five-col-body { flex:1; display:flex; flex-direction:column; }
+  .five-col-body { flex:0 0 auto; display:flex; flex-direction:column; }
   .five-date { color:#a1a1a6; font:750 12px/1.1 "Avenir Next",sans-serif;
     letter-spacing:.15em; text-transform:uppercase; }
   .five-dayname, .five-listname { margin:5px 0 0; font:700 28px/1.07 "Avenir Next Condensed","Arial Narrow",sans-serif;
@@ -505,7 +505,7 @@
     display:flex; align-items:center; border-bottom:1px solid #e6e7e9; background:#ebebee;
     color:#37373c; font:800 10px/1 "Avenir Next",sans-serif; letter-spacing:.08em; text-transform:uppercase; }
   .five-group span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .five-lines { flex:1 0 70px; min-height:70px; background:repeating-linear-gradient(to bottom,
+  .five-lines { flex:0 0 calc(3 * var(--five-row-height)); height:calc(3 * var(--five-row-height)); background:repeating-linear-gradient(to bottom,
     transparent 0,transparent 33px,#e9e9eb 33px,#e9e9eb 34px); }
   .five-toolbar { height:57px; display:flex; align-items:center; gap:18px;
     border-top:1px solid #ededf0; border-bottom:1px solid #ededf0; padding:0 clamp(30px,3.4vw,68px);
