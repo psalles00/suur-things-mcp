@@ -2539,7 +2539,7 @@ function fiveEventRow(event,date){
     const r=await postJSON("/api/open-calendar-event",{date,...event});
     row.classList.remove("five-pending");
     row.removeAttribute("aria-busy");
-    fiveCalendarStatus(r.ok?"Evento aberto no Calendário.":
+    fiveCalendarStatus(r.ok?"Comando enviado ao Calendário.":
       "Não foi possível abrir o evento: "+(r.error||"erro desconhecido"),!r.ok);
   };
   row.onclick=open;

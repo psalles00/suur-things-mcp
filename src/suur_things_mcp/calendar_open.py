@@ -35,7 +35,9 @@ function run(argv) {
         return true;
     });
     if (matches.length !== 1) throw new Error("Event is unavailable or ambiguous");
+    app.activate();
     matches[0].show();
+    app.activate();
     return "ok";
 }
 '''
