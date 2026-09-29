@@ -39,9 +39,7 @@
   .iconbtn { border:1px solid var(--divider); background:var(--main-bg); color:var(--text); width:32px;
     height:32px; border-radius:8px; cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center; flex:0 0 32px; }
   .iconbtn:hover { background:var(--row-hover); }
-  .five-top-open { border:1px solid var(--divider); background:var(--main-bg); color:var(--text);
-    height:32px; padding:0 10px; border-radius:8px; cursor:pointer; font:700 12px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif; white-space:nowrap; }
-  .five-top-open:hover { background:var(--row-hover); }
+  .five-top-open { font-size:19px; }
   .five-top-open[hidden] { display:none; }
   .five-open-menu { position:fixed; z-index:60; min-width:190px; max-width:min(320px,calc(100vw - 24px)); max-height:60vh; overflow-y:auto;
     padding:5px; border:1px solid var(--divider); border-radius:10px; background:var(--card-bg); box-shadow:0 12px 28px rgba(0,0,0,.16); }
@@ -489,17 +487,16 @@
   .five-lists-grid { width:100%; padding-top:44px; padding-bottom:24px; }
   .five-lists-grid.is-wide { width:max-content; grid-template-columns:repeat(var(--five-count),var(--five-col-width,312px)); }
   .five-datecol, .five-listcol { min-width:0; min-height:0; display:flex; flex-direction:column; }
-  .five-datehead { flex:0 0 76px; min-width:0; }
+  .five-datehead { flex:0 0 76px; min-width:0; display:flex; align-items:flex-start; gap:4px; }
+  .five-datecopy { flex:1; min-width:0; }
   .five-listhead { flex:0 0 66px; min-width:0; position:relative; z-index:2; background:#f7f8fa; }
   .five-listhead { display:flex; align-items:flex-start; gap:4px; }
   .five-listhead .five-listname { flex:1; min-width:0; }
-  .five-list-action { border:0; background:transparent; color:var(--muted); width:25px; height:28px; padding:3px; cursor:pointer; border-radius:5px; flex:0 0 auto; }
+  .five-list-action { border:0; background:transparent; color:var(--muted); width:25px; height:28px; padding:3px; cursor:pointer; border-radius:5px; flex:0 0 auto; display:grid; place-items:center; }
   .five-list-action:hover, .five-list-action:focus-visible { color:var(--text); background:#e5e6e9; }
   html[data-theme="dark"] .five-list-action:hover, html[data-theme="dark"] .five-list-action:focus-visible { background:#343a42; }
   .five-list-action svg { width:16px; height:16px; }
-  .five-list-action.open-things { width:auto; height:27px; padding:3px 6px; border:1px solid #d3d5dc;
-    background:#fff; color:#535862; font:700 10px/1 "Avenir Next",sans-serif; white-space:nowrap; }
-  html[data-theme="dark"] .five-list-action.open-things { background:#2d3239; border-color:#505761; color:#d1d5dc; }
+  .five-list-action.open-things { font:18px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif; }
   .five-col-body { flex:1; display:flex; flex-direction:column; }
   .five-listcol .five-col-body { flex:0 0 auto; }
   .five-date { color:#a1a1a6; font:750 12px/1.1 "Avenir Next",sans-serif;
@@ -580,7 +577,7 @@
     <span class="ck-ph">Search &amp; commands</span><span class="kbd">⌘K</span>
   </button>
   <span class="grow"></span>
-  <button type="button" class="five-top-open" id="five-open-btn" title="Abrir uma lista no Things (Ctrl+T)" aria-haspopup="menu" aria-expanded="false" hidden>Things ↗</button>
+  <button type="button" class="iconbtn five-top-open" id="five-open-btn" title="Abrir uma lista no Things (Ctrl+T)" aria-label="Abrir uma lista no Things" aria-haspopup="menu" aria-expanded="false" hidden>↗</button>
   <button class="iconbtn" id="add-btn" title="Add to-do or project">＋</button>
   <button class="iconbtn" id="prefs-btn" title="Preferences">⚙</button>
   <button class="iconbtn" id="theme" title="Appearance" aria-label="Appearance" aria-haspopup="menu" aria-expanded="false"></button>
@@ -2488,7 +2485,14 @@ function fivePaint(){
     const label=d.toLocaleDateString("en-US",{day:"2-digit",month:"short",year:"numeric"}).toUpperCase();
     const name=["DOMINGO","SEGUNDA","TERÇA","QUARTA","QUINTA","SEXTA","SÁBADO"][d.getDay()];
     const head=document.createElement("div"); head.className="five-datehead";
-    head.innerHTML=`<div class="five-date">${esc(label)}</div><h2 class="five-dayname">${esc(name)}</h2>`;
+    const copy=document.createElement("div"); copy.className="five-datecopy";
+    copy.innerHTML=`<div class="five-date">${esc(label)}</div><h2 class="five-dayname">${esc(name)}</h2>`;
+    const dateDestination=iso===today?"today":"upcoming";
+    const open=document.createElement("button"); open.type="button"; open.className="five-list-action open-things";
+    open.title="Abrir "+(dateDestination==="today"?"Today":"Upcoming")+" no Things";
+    open.setAttribute("aria-label",open.title); open.textContent="↗";
+    open.onclick=()=>fiveOpenInThings(dateDestination);
+    head.append(copy,open);
     const body=document.createElement("div"); body.className="five-col-body";
     const items=FIVE_DATA.days.find(day=>day.date===iso)?.items||[];
     fiveAppendRows(body,items,"project_title",{kind:"date",date:iso});
@@ -2514,12 +2518,12 @@ function fivePaint(){
       const add=document.createElement("button"); add.type="button"; add.className="five-list-action";
       add.title="Add to "+title.textContent; add.setAttribute("aria-label",add.title);
       add.innerHTML='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 2.5v11M2.5 8h11"/></svg>';
-      add.onclick=()=>openCreate("todo",null,id); head.appendChild(add);
+      add.onclick=()=>openCreate("todo",null,id);
       const open=document.createElement("button"); open.type="button"; open.className="five-list-action open-things";
       open.title="Abrir "+title.textContent+" no Things"; open.setAttribute("aria-label",open.title);
-      open.textContent="Things ↗";
+      open.textContent="↗";
       open.onclick=()=>fiveOpenInThings(id);
-      head.appendChild(open); col.appendChild(head);
+      head.append(open,add); col.appendChild(head);
       const body=document.createElement("div"); body.className="five-col-body";
       if(data && !data.ok){ const e=document.createElement("div"); e.className="five-error"; e.textContent=data.error||"Could not read project"; body.appendChild(e); }
       else if(data){ const items=(data.items||[]).filter(it=>!prefs.hide_scheduled || !it.start_date);
