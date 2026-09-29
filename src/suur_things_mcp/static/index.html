@@ -450,19 +450,19 @@
   }
   /* Five Days is a self-contained workspace; other SUUR views retain their styles. */
   .main.five-mode .main-head, .main.five-mode #filterbar { display:none; }
-  .main.five-mode #content { padding:0; overflow:hidden; }
-  .five-shell { --five-accent:#9338df; --five-row-height:34px; height:100%; display:flex; flex-direction:column;
+  .main.five-mode #content { padding:0; overflow-x:hidden; overflow-y:auto; }
+  .five-shell { --five-accent:#9338df; --five-row-height:34px; min-height:100%;
     background:#fff; color:#202024; font-family:"Avenir Next",-apple-system,BlinkMacSystemFont,sans-serif; }
-  .five-nav { flex:0 0 48px; display:flex; align-items:center; justify-content:flex-end;
+  .five-nav { height:48px; display:flex; align-items:center; justify-content:flex-end;
     gap:8px; padding:0 24px; color:#696970; }
   .five-nav .five-caption { margin-right:auto; font-size:11px; font-weight:750; letter-spacing:.16em; color:#98989d; }
   .five-nav button, .five-toolbar button { border:0; background:transparent; color:inherit;
     font:inherit; cursor:pointer; padding:6px 9px; border-radius:5px; }
   .five-nav button:hover, .five-toolbar button:hover { background:#eeeef1; }
   .five-nav .five-today { font-size:11px; text-transform:uppercase; letter-spacing:.1em; }
-  .five-scroller { flex:1; min-height:0; overflow:hidden; display:flex; flex-direction:column; }
-  .five-days-viewport { flex:1.095 1 0; min-height:250px; overflow-x:auto; overflow-y:hidden; }
-  .five-lists-viewport { flex:.905 1 0; min-height:220px; overflow-x:auto; overflow-y:hidden; background:#f7f8fa;
+  .five-scroller { overflow:visible; }
+  .five-days-viewport { overflow-x:auto; overflow-y:hidden; }
+  .five-lists-viewport { overflow-x:auto; overflow-y:hidden; background:#f7f8fa;
     scrollbar-width:none; }
   .five-lists-viewport:hover { scrollbar-width:thin; scrollbar-color:#b9bbc2 transparent; }
   .five-lists-viewport::-webkit-scrollbar { height:0; }
@@ -471,18 +471,13 @@
   .five-days-grid, .five-lists-grid { min-width:max(1050px,calc(var(--five-visible,5) * 200px)); display:grid;
     grid-template-columns:repeat(var(--five-visible,5),minmax(0,1fr));
     column-gap:clamp(24px,4vw,80px); padding-left:clamp(30px,3.4vw,68px); padding-right:clamp(30px,2.3vw,46px); }
-  .five-days-grid { width:100%; height:100%; padding-top:17px; padding-bottom:20px; }
-  .five-lists-grid { width:100%; height:100%; padding-top:44px; padding-bottom:24px; }
+  .five-days-grid { width:100%; min-height:max(250px,50vh); padding-top:17px; padding-bottom:20px; }
+  .five-lists-grid { width:100%; min-height:max(220px,40vh); padding-top:44px; padding-bottom:24px; }
   .five-lists-grid.is-wide { width:max-content; grid-template-columns:repeat(var(--five-count),var(--five-col-width,312px)); }
   .five-datecol, .five-listcol { min-width:0; min-height:0; display:flex; flex-direction:column; }
   .five-datehead { flex:0 0 76px; min-width:0; }
-  .five-listhead { flex:0 0 66px; min-width:0; }
-  .five-col-body { flex:1; min-height:0; display:flex; flex-direction:column; overflow-y:auto;
-    overscroll-behavior:contain; scrollbar-width:none; }
-  .five-col-body:hover { scrollbar-width:thin; scrollbar-color:#b9bbc2 transparent; }
-  .five-col-body::-webkit-scrollbar { width:0; }
-  .five-col-body:hover::-webkit-scrollbar { width:6px; }
-  .five-col-body::-webkit-scrollbar-thumb { background:#b9bbc2; border-radius:6px; }
+  .five-listhead { flex:0 0 66px; min-width:0; position:relative; z-index:2; background:#f7f8fa; }
+  .five-col-body { flex:1; display:flex; flex-direction:column; }
   .five-date { color:#a1a1a6; font:750 12px/1.1 "Avenir Next",sans-serif;
     letter-spacing:.15em; text-transform:uppercase; }
   .five-dayname, .five-listname { margin:5px 0 0; font:700 28px/1.07 "Avenir Next Condensed","Arial Narrow",sans-serif;
@@ -506,7 +501,7 @@
   .five-group span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .five-lines { flex:1 0 70px; min-height:70px; background:repeating-linear-gradient(to bottom,
     transparent 0,transparent 33px,#e9e9eb 33px,#e9e9eb 34px); }
-  .five-toolbar { flex:0 0 57px; display:flex; align-items:center; gap:18px;
+  .five-toolbar { height:57px; display:flex; align-items:center; gap:18px;
     border-top:1px solid #ededf0; border-bottom:1px solid #ededf0; padding:0 clamp(30px,3.4vw,68px);
     background:#fff; color:#77777c; white-space:nowrap; }
   .five-toolbar .five-tab { align-self:stretch; display:flex; align-items:center;
@@ -536,6 +531,7 @@
   html[data-theme="dark"] .five-toolbar .five-tab { color:#e7e9ec; }
   html[data-theme="dark"] .five-toolbar .five-manage { color:#c6cad0; }
   html[data-theme="dark"] .five-lists-viewport { background:#22262b; }
+  html[data-theme="dark"] .five-listhead { background:#22262b; }
   html[data-theme="dark"] .five-shell .row { border-color:#363a41; }
   html[data-theme="dark"] .five-shell .row:hover { background:#30343b; }
   html[data-theme="dark"] .five-group { background:#333840; color:#e7e9ec; border-color:#363a41; }
@@ -2284,6 +2280,22 @@ function fiveUpdateColumnWidth(){
   const day=$("#five-days-grid .five-datecol"), lists=$("#five-lists-grid");
   if(day && lists) lists.style.setProperty("--five-col-width",day.getBoundingClientRect().width+"px");
 }
+let FIVE_HEADER_FRAME=0;
+function fiveSyncListHeaders(){
+  if(!FIVE_ACTIVE) return;
+  const page=$("#content"), viewport=$(".five-lists-viewport");
+  if(!page || !viewport) return;
+  const grid=$("#five-lists-grid"), inset=parseFloat(getComputedStyle(grid).paddingTop)||0;
+  const offset=Math.max(0,page.getBoundingClientRect().top-viewport.getBoundingClientRect().top-inset);
+  viewport.querySelectorAll(".five-listhead").forEach(head=>{
+    head.style.transform=`translateY(${Math.min(offset,Math.max(0,viewport.offsetHeight-inset-head.offsetHeight))}px)`;
+  });
+}
+function fiveQueueListHeaders(){
+  if(FIVE_HEADER_FRAME) return;
+  FIVE_HEADER_FRAME=requestAnimationFrame(()=>{ FIVE_HEADER_FRAME=0; fiveSyncListHeaders(); });
+}
+$("#content").addEventListener("scroll",fiveQueueListHeaders,{passive:true});
 window.addEventListener("resize",()=>{ if(FIVE_ACTIVE) fiveUpdateColumnWidth(); });
 function fiveShell(){
   const c=$("#content"); c.classList.remove("swap-in");
@@ -2358,8 +2370,7 @@ function fivePaint(){
   const dg=$("#five-days-grid"), lg=$("#five-lists-grid");
   const count=fiveColumnCount();
   dg.style.setProperty("--five-visible",count); lg.style.setProperty("--five-visible",count);
-  const scrolls=new Map([...document.querySelectorAll(".five-col-body[data-five-scroll]")].map(el=>
-    [el.dataset.fiveScroll,el.scrollTop]));
+  const page=$("#content"), pageY=page.scrollTop;
   const daysX=dg.parentElement.scrollLeft, listsX=lg.parentElement.scrollLeft;
   dg.replaceChildren(); lg.replaceChildren(); fiveCollect();
   const today=FIVE_TODAY||fiveNowISO();
@@ -2371,7 +2382,7 @@ function fivePaint(){
     const name=["DOMINGO","SEGUNDA","TERÇA","QUARTA","QUINTA","SEXTA","SÁBADO"][d.getDay()];
     const head=document.createElement("div"); head.className="five-datehead";
     head.innerHTML=`<div class="five-date">${esc(label)}</div><h2 class="five-dayname">${esc(name)}</h2>`;
-    const body=document.createElement("div"); body.className="five-col-body"; body.dataset.fiveScroll="date:"+iso;
+    const body=document.createElement("div"); body.className="five-col-body";
     const items=FIVE_DATA.days.find(day=>day.date===iso)?.items||[];
     fiveAppendRows(body,items,"project_title",{kind:"date",date:iso});
     if(FIVE_DATA.dayError && i===0){ const e=document.createElement("div"); e.className="five-error"; e.textContent=FIVE_DATA.dayError; body.appendChild(e); }
@@ -2393,7 +2404,7 @@ function fivePaint(){
       const head=document.createElement("div"); head.className="five-listhead";
       const title=document.createElement("h2"); title.className="five-listname"; title.textContent=p?.title||"Project unavailable";
       title.title=title.textContent; head.appendChild(title); col.appendChild(head);
-      const body=document.createElement("div"); body.className="five-col-body"; body.dataset.fiveScroll="project:"+id;
+      const body=document.createElement("div"); body.className="five-col-body";
       if(data && !data.ok){ const e=document.createElement("div"); e.className="five-error"; e.textContent=data.error||"Could not read project"; body.appendChild(e); }
       else if(data){ const items=(data.items||[]).filter(it=>!prefs.hide_scheduled || !it.start_date);
         fiveAppendRows(body,items,"heading_title",{kind:"project",id});
@@ -2410,9 +2421,9 @@ function fivePaint(){
     const b=document.createElement("button"); b.className="five-placeholder"; b.textContent=prefs.project_ids.length?"＋ MANAGE LISTS":"＋ ADD LIST";
     b.onclick=fiveOpenPicker; manage.appendChild(b); lg.appendChild(manage); }
   fiveUpdateColumnWidth();
-  document.querySelectorAll(".five-col-body[data-five-scroll]").forEach(el=>{
-    el.scrollTop=scrolls.get(el.dataset.fiveScroll)||0; });
   dg.parentElement.scrollLeft=daysX; lg.parentElement.scrollLeft=listsX;
+  page.scrollTop=pageY;
+  fiveSyncListHeaders();
 }
 async function fiveSavePrefs(next){
   const r=await postJSON("/api/config",{five_days:next});
