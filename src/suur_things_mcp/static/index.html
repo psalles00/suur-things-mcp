@@ -448,7 +448,7 @@
     .selbar, .selbar.show { transform: translateX(-50%); }
     .ctxmenu { transform: none; }
   }
-  /* Five Days is a self-contained workspace; other SUUR views retain their styles. */
+  /* Teux Deux is a self-contained workspace; other SUUR views retain their styles. */
   .main.five-mode .main-head, .main.five-mode #filterbar { display:none; }
   .main.five-mode #content { padding:0; overflow-x:hidden; overflow-y:auto; }
   .five-shell { --five-accent:#9338df; --five-row-height:34px; min-height:100%;
@@ -509,8 +509,13 @@
     display:flex; align-items:center; border-bottom:1px solid #e6e7e9; background:#ebebee;
     color:#37373c; font:800 10px/1 "Avenir Next",sans-serif; letter-spacing:.08em; text-transform:uppercase; }
   .five-group span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .five-lines { flex:1 0 70px; min-height:70px; background:repeating-linear-gradient(to bottom,
+  .five-lines { flex:1 0 70px; min-height:70px; position:relative; cursor:text;
+    background:repeating-linear-gradient(to bottom,
     transparent 0,transparent 33px,#e9e9eb 33px,#e9e9eb 34px); }
+  .five-lines::after { content:"＋"; position:absolute; top:var(--five-hover-y,0px); left:0; right:0;
+    height:var(--five-row-height); padding:7px 8px; color:var(--five-accent);
+    background:rgba(147,56,223,.07); opacity:0; pointer-events:none; }
+  .five-lines:hover::after { opacity:1; }
   .five-listcol .five-lines { flex:0 0 auto; min-height:0; }
   .five-toolbar { height:57px; display:flex; align-items:center; gap:18px;
     border-top:1px solid #ededf0; border-bottom:1px solid #ededf0; padding:0 clamp(30px,3.4vw,68px);
@@ -664,7 +669,7 @@
 <div class="overlay" id="prefs-overlay">
   <div class="panel">
     <h2>Preferences</h2><div class="sub">Saved locally.</div>
-    <div class="field"><label for="pf-five-columns">Five Days: colunas visíveis</label>
+    <div class="field"><label for="pf-five-columns">Teux Deux: colunas visíveis</label>
       <select id="pf-five-columns"><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option></select></div>
     <div class="field"><label>Editor command (on your PATH — e.g. code, cursor, subl, idea)</label><input id="pf-editor" placeholder="code"></div>
     <div class="field"><label>Terminal app (e.g. Ghostty, iTerm, Terminal, Warp)</label><input id="pf-terminal" placeholder="Terminal"></div>
@@ -919,7 +924,7 @@ function fuzzy(q,s){ if(!q) return true; q=q.toLowerCase(); s=(s||"").toLowerCas
 function ckCommands(){
   const out=[];
   ((SIDEBAR&&SIDEBAR.builtins)||[]).forEach(b=>out.push({label:b.title, hint:"Go", icon:SVG[b.id]||"", run:()=>go("#l/"+encodeURIComponent(b.id))}));
-  out.push({label:"Five Days", hint:"Go", icon:"▦", run:()=>go("#five-days")});
+  out.push({label:"Teux Deux", hint:"Go", icon:"▦", run:()=>go("#five-days")});
   out.push({label:"Priority Matrix", hint:"Go", icon:SVG.priority, run:()=>go("#p")});
   out.push({label:"Priority Levels", hint:"Go", icon:SVG.levels, run:()=>go("#pl")});
   (CONFIG.boards||[]).forEach(b=>out.push({label:b.name, hint:"Board", icon:SVG.board, run:()=>go("#b/"+encodeURIComponent(b.id))}));
@@ -1027,7 +1032,7 @@ function renderSidebar(){
   const bi=SIDEBAR.builtins, tIdx=bi.findIndex(b=>b.id==="today");
   bi.slice(0,tIdx+1).forEach(b=>el.appendChild(builtinEl(b)));
   const five=document.createElement("div"); five.className="nav-item"; five.dataset.id="five-days";
-  five.innerHTML='<span class="ico">▦</span><span class="label">Five Days</span>';
+  five.innerHTML='<span class="ico">▦</span><span class="label">Teux Deux</span>';
   five.onclick=()=>go("#five-days"); el.appendChild(five);
   const pri=document.createElement("div"); pri.className="nav-item"; pri.dataset.id="priority";
   pri.innerHTML=`<span class="ico">${SVG.priority}</span><span class="label">Priority Matrix</span>`; pri.onclick=()=>go("#p");
@@ -1122,6 +1127,7 @@ function pointerTarget(selector,x,y){
 }
 function pointerListDrag(source, kind, taskId=null){
   source.addEventListener("pointerdown",e=>{
+    if(kind==="magic" && MODE==="five"){ pointerFiveMagicDrag(e,source); return; }
     if(e.button!==0 || !canPlaceInList() || e.target.closest(".box")) return;
     const startX=e.clientX, startY=e.clientY, pointerId=e.pointerId;
     let moving=false, ghost=null;
@@ -1820,7 +1826,7 @@ async function deleteBoard(){
 }
 
 // --- edit dialog (Things-style card; saves on close only if changed) ---
-let EDIT_ORIG=null, WHEN_SEED=null, WHEN_CLEAR=false, EDIT_NEW=false, EDIT_KIND="todo", PENDING_ATTACH=[], EDIT_PLACEMENT=null, EDIT_DESTINATION=null;
+let EDIT_ORIG=null, WHEN_SEED=null, WHEN_CLEAR=false, EDIT_NEW=false, EDIT_KIND="todo", PENDING_ATTACH=[], EDIT_PLACEMENT=null, EDIT_DESTINATION=null, EDIT_HEADING_ID=null;
 const WHEN_OPTS=[["today","Today"],["evening","This Evening"],["tomorrow","Tomorrow"],["anytime","Anytime"],["someday","Someday"]];
 // Floor the height so a textarea can never collapse to 0 — which made the create
 // card's title field invisible (the checkbox is hidden there, so the flex row had
@@ -1896,7 +1902,7 @@ function toggleEditor(id, tool){
 // --- create mode: the edit card, reused for a brand-new to-do/project ---
 function openCreate(kind, placement=null, destination=null){
   EDIT_NEW=true; EDIT_ID=null; EDIT_KIND=kind||"todo"; WHEN_CLEAR=false; clearPending();
-  EDIT_DESTINATION=destination;
+  EDIT_DESTINATION=destination; EDIT_HEADING_ID=null;
   $("#when-remove").style.display="none";
   ["f-title","f-notes","f-when","f-deadline","f-tags"].forEach(id=>{ $("#"+id).value=""; $("#"+id).disabled=false; });
   $("#f-checklist").innerHTML="";
@@ -1976,7 +1982,8 @@ async function createFromCard(){
   }
   else { if(when) body.when=when; if(deadline) body.deadline=deadline; if(tags.length) body.tags=tags;
          if(EDIT_DESTINATION && EDIT_DESTINATION!=="inbox") body.list_id=EDIT_DESTINATION;
-         else if(!EDIT_DESTINATION && SEL&&(SEL.kind==="project"||SEL.kind==="area")) body.list_id=SEL.id; }
+         else if(!EDIT_DESTINATION && SEL&&(SEL.kind==="project"||SEL.kind==="area")) body.list_id=SEL.id;
+         if(EDIT_HEADING_ID && !EDIT_PLACEMENT) body.heading_id=EDIT_HEADING_ID; }
   // Resolving + attaching an image can take a few seconds (Things commits the DB
   // async). Show progress and lock the button so the wait doesn't look like a dead click.
   const btn=$("#ec-add"); const label=btn.textContent;
@@ -2189,7 +2196,7 @@ async function applyOrganize(){
   alert(`Applied ${n} task update(s).`);
 }
 
-// preferences (Five Days columns, editor, and terminal app)
+// preferences (Teux Deux columns, editor, and terminal app)
 function openPrefs(){ const p=CONFIG.prefs||{}; $("#pf-editor").value=p.editor||"";
   $("#pf-terminal").value=p.terminal||""; $("#pf-five-columns").value=String(fiveColumnCount()); openOverlay("prefs-overlay"); }
 async function savePrefs(){
@@ -2297,7 +2304,7 @@ async function commitHeadRename(){
   h.addEventListener("blur", commitHeadRename);
 })();
 
-// --- Five Days: configurable Things dates above user-selected lists ---
+// --- Teux Deux: configurable Things dates above user-selected lists ---
 let FIVE_ACTIVE=false, FIVE_START=null, FIVE_TODAY=null, FIVE_DATA={days:[],lists:{}}, FIVE_PRIOR_SIDEBAR=false;
 let SIDEBAR_MANUAL=localStorage.getItem("suur-sidebar-collapsed")==="1";
 function setSidebarCollapsed(on){
@@ -2354,7 +2361,7 @@ window.addEventListener("resize",()=>{ if(FIVE_ACTIVE) fiveUpdateColumnWidth(); 
 function fiveShell(){
   const c=$("#content"); c.classList.remove("swap-in");
   c.innerHTML=`<div class="five-shell"><nav class="five-nav" aria-label="Five-day navigation">
-    <span class="five-caption">SUUR · FIVE DAYS</span>
+    <span class="five-caption">SUUR · TEUX DEUX</span>
     <button type="button" data-shift="-page" aria-label="Voltar uma página">«</button>
     <button type="button" data-shift="-1" aria-label="Previous day">‹</button>
     <button type="button" class="five-today" id="five-reset">Today</button>
@@ -2404,7 +2411,7 @@ function fiveAppendRows(col,items,key,source,headings=[]){
   for(const group of groups){
     if(group.key){ const h=document.createElement("div"); h.className="five-group";
       const title=document.createElement("span"); title.textContent=group.key; title.title=group.key; h.appendChild(title);
-      if(key==="heading_title") h.dataset.fiveHeading=group.key;
+      if(key==="heading_title"){ h.dataset.fiveHeading=group.key; if(group.id) h.dataset.fiveHeadingId=group.id; }
       col.appendChild(h); }
     for(const it of group.items){ const row=rowEl(it); row.draggable=false;
       if(it.status==="incomplete") fiveAttachDrag(row,it,source);
@@ -2440,7 +2447,7 @@ function fivePaint(){
     const items=FIVE_DATA.days.find(day=>day.date===iso)?.items||[];
     fiveAppendRows(body,items,"project_title",{kind:"date",date:iso});
     if(FIVE_DATA.dayError && i===0){ const e=document.createElement("div"); e.className="five-error"; e.textContent=FIVE_DATA.dayError; body.appendChild(e); }
-    const lines=document.createElement("div"); lines.className="five-lines"; body.appendChild(lines);
+    const lines=document.createElement("div"); lines.className="five-lines"; fiveActivateBlankLines(lines); body.appendChild(lines);
     col.append(head,body); dg.appendChild(col);
   }
   const prefs=fivePrefs(), bar=$("#five-toolbar");
@@ -2474,7 +2481,7 @@ function fivePaint(){
         if(!items.length && !(data.headings||[]).length){ const e=document.createElement("div"); e.className="five-empty"; e.textContent="No unscheduled tasks"; body.appendChild(e); }
         if(data.order_synced===false){ const e=document.createElement("div"); e.className="five-error"; e.textContent="Native order unavailable; precise drops are disabled."; body.appendChild(e); }
       } else { const e=document.createElement("div"); e.className="five-empty"; e.textContent="Loading…"; body.appendChild(e); }
-      const lines=document.createElement("div"); lines.className="five-lines"; body.appendChild(lines);
+      const lines=document.createElement("div"); lines.className="five-lines"; fiveActivateBlankLines(lines); body.appendChild(lines);
       col.appendChild(body);
     } else { const b=document.createElement("button"); b.className="five-placeholder"; b.textContent="＋ CHOOSE A LIST";
       b.onclick=fiveOpenPicker; col.appendChild(b); }
@@ -2498,7 +2505,7 @@ function fivePaint(){
 }
 async function fiveSavePrefs(next){
   const r=await postJSON("/api/config",{five_days:next});
-  if(!r.ok){ alert("Could not save Five Days: "+(r.error||"unknown error")); return; }
+  if(!r.ok){ alert("Could not save Teux Deux: "+(r.error||"unknown error")); return; }
   CONFIG=r.config; fivePaint(); renderFiveDays();
 }
 function fiveOpenPicker(){
@@ -2539,10 +2546,68 @@ function fiveDropTarget(x,y){
   const date=at?.closest(".five-datecol[data-five-date]");
   const project=at?.closest(".five-listcol[data-five-project]");
   const heading=at?.closest(".five-group[data-five-heading]");
+  const line=at?.closest(".five-lines");
   if(!date && !project) return null;
   return {row,date:date?.dataset.fiveDate,project:project?.dataset.fiveProject,
-          heading:heading?.dataset.fiveHeading,before:!!row && y<row.getBoundingClientRect().top+row.offsetHeight/2,
+          heading:heading?.dataset.fiveHeading,headingId:heading?.dataset.fiveHeadingId,
+          line,before:!!row && y<row.getBoundingClientRect().top+row.offsetHeight/2,
           column:date||project};
+}
+function fiveActivateBlankLines(lines){
+  lines.title="Click to add a to-do here";
+  lines.addEventListener("pointermove",e=>{
+    const top=lines.getBoundingClientRect().top;
+    lines.style.setProperty("--five-hover-y",Math.floor((e.clientY-top)/34)*34+"px");
+  });
+  lines.addEventListener("click",e=>{
+    if(e.button!==0) return;
+    fiveCreateAtTarget(fiveDropTarget(e.clientX,e.clientY));
+  });
+}
+function fiveCreateAtTarget(target){
+  if(!target) return;
+  let placement=null, destination=target.project||null, headingId=target.headingId||null;
+  if(destination){
+    const data=FIVE_DATA.lists[destination];
+    let row=target.row, before=target.before;
+    if(!row && target.line){
+      const last=target.line.previousElementSibling;
+      if(last?.matches(".row[data-task-id]")){ row=last; before=false; }
+      const headings=target.column.querySelectorAll(".five-group[data-five-heading-id]");
+      if(headings.length) headingId=headings[headings.length-1].dataset.fiveHeadingId;
+    }
+    const item=(data?.items||[]).find(it=>it.uuid===row?.dataset.taskId);
+    if(item?.heading) headingId=item.heading;
+    if(row && item?.status==="incomplete" && data?.order_synced && data?.order_writable)
+      placement={list_id:destination,target_id:item.uuid,before};
+  }
+  openCreate("todo",placement,destination);
+  EDIT_HEADING_ID=headingId;
+  if(target.date){ $("#f-when").value=target.date; buildWhenChips(); updatePills(); }
+}
+function pointerFiveMagicDrag(e,source){
+  if(e.button!==0) return;
+  const x=e.clientX,y=e.clientY,id=e.pointerId; let moving=false,ghost=null;
+  const move=ev=>{
+    if(ev.pointerId!==id) return;
+    if(!moving && Math.hypot(ev.clientX-x,ev.clientY-y)<6) return;
+    if(!moving){ moving=true; source.classList.add("dragging"); document.body.classList.add("dragging-task");
+      ghost=document.createElement("div"); ghost.className="pointer-ghost"; ghost.textContent="＋ New task"; document.body.appendChild(ghost); }
+    ev.preventDefault(); ghost.style.left=ev.clientX+14+"px"; ghost.style.top=ev.clientY+14+"px";
+    fiveClearDrop(); const target=fiveDropTarget(ev.clientX,ev.clientY);
+    if(target){ target.column.classList.add("five-drop");
+      if(target.row) target.row.classList.add(target.before?"five-drop-before":"five-drop-after"); }
+  };
+  const cleanup=()=>{ window.removeEventListener("pointermove",move); window.removeEventListener("pointerup",end);
+    window.removeEventListener("pointercancel",cancel); source.classList.remove("dragging");
+    document.body.classList.remove("dragging-task"); ghost?.remove(); fiveClearDrop(); };
+  const end=ev=>{ if(ev.pointerId!==id) return; const target=moving?fiveDropTarget(ev.clientX,ev.clientY):null;
+    cleanup(); if(!moving) return;
+    SUPPRESS_DRAG_CLICK=true; setTimeout(()=>{SUPPRESS_DRAG_CLICK=false;},0);
+    if(target) fiveCreateAtTarget(target); };
+  const cancel=ev=>{ if(ev.pointerId===id) cleanup(); };
+  window.addEventListener("pointermove",move); window.addEventListener("pointerup",end);
+  window.addEventListener("pointercancel",cancel);
 }
 function fiveAttachDrag(row,it,source){
   row.addEventListener("pointerdown",e=>{
