@@ -1815,6 +1815,9 @@ function scheduleLabel(ci){
   if(ci.start==="Someday") return "Someday";
   return null;
 }
+function hasTaskSchedule(it){
+  return !!(it.start_date || (it.start && !["Anytime","Inbox"].includes(it.start)));
+}
 function currentWhenLabel(){
   if(WHEN_CLEAR) return "Anytime";
   const w=$("#f-when").value.trim();
@@ -1966,7 +1969,7 @@ async function openEdit(uuid){
   ["ed-when","ed-deadline","ed-tags"].forEach(id=>$("#"+id).classList.remove("show"));
   ["tool-when","tool-deadline","tool-tags"].forEach(id=>$("#"+id).classList.remove("on"));
   WHEN_SEED=scheduleLabel(it);
-  $("#when-remove").style.display=AUTH && (it.start_date || (it.start && !["Anytime","Inbox"].includes(it.start)))?"inline-block":"none";
+  $("#when-remove").style.display=AUTH && hasTaskSchedule(it)?"inline-block":"none";
   buildWhenChips();
   const ro=!AUTH; $("#edit-warn").style.display=ro?"block":"none";
   ["f-title","f-notes","f-when","f-deadline","f-tags"].forEach(id=>$("#"+id).disabled=ro);
@@ -2544,8 +2547,8 @@ function renderAbout(){
 }
 
 async function reschedule(id, when){
-  if(!AUTH){ alert("Set THINGS_AUTH_TOKEN to reschedule by drag."); return; }
-  const r=await postJSON("/api/update", {id, when});
+  if(!AUTH){ alert("Set THINGS_AUTH_TOKEN to edit task dates."); return; }
+  const r=await postJSON("/api/update", {id, when:when==="anytime"?"":when});
   if(!r.ok){ alert("Reschedule failed: "+(r.error||"")); return; }
   refreshAfterWrite();
 }
@@ -2575,7 +2578,7 @@ function buildSelBar(){
     b.textContent=label; if(title) b.title=title; b.onclick=fn; bar.appendChild(b); };
   add("✓ Complete",()=>batchUpdate({completed:true}));
   add("Today",()=>batchUpdate({when:"today"}));
-  add("Anytime",()=>batchUpdate({when:"anytime"}));
+  add("Anytime",()=>batchUpdate({when:""}));
   add("Someday",()=>batchUpdate({when:"someday"}));
   add("Move…",()=>{ openCmdk(); enterBatchMoveScreen(); },"Move the selection to a project/area");
   add("✕",clearSelection,"Clear selection (Esc)");
@@ -2613,6 +2616,7 @@ function taskCtxMenu(it, x, y){
   mi("Tomorrow",()=>reschedule(it.uuid,"tomorrow"));
   mi("Anytime",()=>reschedule(it.uuid,"anytime"));
   mi("Someday",()=>reschedule(it.uuid,"someday"));
+  if(hasTaskSchedule(it)) mi("Remover agendamento",()=>reschedule(it.uuid,""));
   sep();
   mi("Move to project…",()=>{ openCmdk(); enterMoveScreen({uuid:it.uuid,title:it.title}); });
   mi("Open in Things ↗",()=>{ window.location.href="things:///show?id="+encodeURIComponent(it.uuid); });
