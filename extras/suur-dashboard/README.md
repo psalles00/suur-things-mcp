@@ -6,7 +6,7 @@ The Things database is inside a protected Group Container. On this Mac, a plain 
 
 ## Calendar events in Teux Deux
 
-Things mirrors Apple Calendar events locally. Teux Deux reads the same Apple Calendar store through EventKit and displays events above Things tasks in each date column, with a calendar icon instead of a checkbox. SUUR never edits calendar events. On first use, grant **SUUR Dashboard** Calendar access when macOS asks. If you declined, enable it in **System Settings → Privacy & Security → Calendars**. EventKit exposes all calendars permitted to SUUR, which can differ from the calendars selected inside Things.
+Things mirrors Apple Calendar events locally. Teux Deux reads the same Apple Calendar store through EventKit and displays events above Things tasks in each date column, with a calendar icon instead of a checkbox. SUUR never edits calendar events. On first use, grant **SUUR Dashboard** Calendar access when macOS asks. If you declined, enable it in **System Settings → Privacy & Security → Calendars**. SUUR reads Things' local `calendarEventsEnabled` and `disabledCalendarEventsCalendarHints` preferences and hides events from calendars deselected in Things → Settings → Calendar Events. These are undocumented Things keys; if the preferences cannot be read, SUUR shows an error rather than exposing every calendar. The native bridge currently reports calendar names, so calendars with the same name in different accounts cannot be distinguished.
 
 ## Editing existing Things tasks
 
