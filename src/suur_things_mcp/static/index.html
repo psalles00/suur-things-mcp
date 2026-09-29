@@ -519,9 +519,16 @@
   .five-group { height:var(--five-row-height); min-height:var(--five-row-height); margin:0; padding:0 8px;
     display:flex; align-items:center; border-bottom:1px solid #e6e7e9; background:#ebebee;
     color:#37373c; font:800 10px/1 "Avenir Next",sans-serif; letter-spacing:.08em; text-transform:uppercase; }
-  .five-group span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .five-group span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .five-heading-actions { display:flex; align-items:center; gap:2px; opacity:0; pointer-events:none; }
+  .five-task-group:hover .five-heading-actions, .five-task-group:focus-within .five-heading-actions,
+  .five-embedded-inbox:hover .five-heading-actions, .five-embedded-inbox:focus-within .five-heading-actions {
+    opacity:1; pointer-events:auto; }
+  .five-heading-action { width:19px; height:19px; padding:2px; border-radius:4px; color:inherit; }
+  .five-heading-action svg { width:12px; height:12px; }
+  .five-heading-action.open-things { font-size:14px; }
+  @media (hover:none) { .five-heading-actions { opacity:1; pointer-events:auto; } }
   .five-inbox-group { background:#eee6f4; color:#68427f; box-shadow:inset 3px 0 var(--five-accent); border-color:#ddd0e9; }
-  .five-inbox-group span { flex:1; }
   .five-inbox-group .five-list-action { color:inherit; }
   .five-embedded-inbox { box-shadow:inset 0 -2px #d7c6e4; }
   .five-lines { flex:1 0 70px; min-height:70px; position:relative; overflow:hidden; cursor:text;
@@ -2461,13 +2468,26 @@ function fivePatch(id,patch){
 function fiveAppendRows(col,items,key,source,headings=[]){
   const groups=key==="heading_title"?projectGroups(items,headings):groupBy(items,key);
   for(const group of groups){
+    const container=group.key?document.createElement("div"):col;
+    if(group.key) container.className="five-task-group";
     if(group.key){ const h=document.createElement("div"); h.className="five-group";
       const title=document.createElement("span"); title.textContent=group.key; title.title=group.key; h.appendChild(title);
       if(key==="heading_title"){ h.dataset.fiveHeading=group.key; if(group.id) h.dataset.fiveHeadingId=group.id; }
-      col.appendChild(h); }
+      const projectId=key==="heading_title"?source.id:group.items[0]?.project;
+      if(projectId && (key!=="heading_title" || group.id)){
+        const actions=document.createElement("div"); actions.className="five-heading-actions";
+        const add=document.createElement("button"); add.type="button"; add.className="five-list-action five-heading-action";
+        add.title="Adicionar em "+group.key; add.setAttribute("aria-label",add.title);
+        add.innerHTML='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 2.5v11M2.5 8h11"/></svg>';
+        add.onclick=()=>{ openCreate("todo",null,projectId);
+          if(key==="heading_title") EDIT_HEADING_ID=group.id;
+          if(source.kind==="date"){ $("#f-when").value=source.date; buildWhenChips(); updatePills(); } };
+        actions.appendChild(add); h.appendChild(actions);
+      }
+      container.appendChild(h); col.appendChild(container); }
     for(const it of group.items){ const row=rowEl(it); row.draggable=false;
       if(it.status==="incomplete") fiveAttachDrag(row,it,source);
-      col.appendChild(row); }
+      container.appendChild(row); }
   }
 }
 function fiveAppendInboxSection(body,prefs){
@@ -2475,14 +2495,15 @@ function fiveAppendInboxSection(body,prefs){
   const head=document.createElement("div"); head.className="five-group five-inbox-group";
   head.dataset.fiveInbox="1";
   const title=document.createElement("span"); title.textContent="ENTRADA"; head.appendChild(title);
-  const open=document.createElement("button"); open.type="button"; open.className="five-list-action open-things";
+  const actions=document.createElement("div"); actions.className="five-heading-actions";
+  const open=document.createElement("button"); open.type="button"; open.className="five-list-action five-heading-action open-things";
   open.textContent="↗"; open.title="Abrir Entrada no Things"; open.setAttribute("aria-label",open.title);
   open.onclick=()=>fiveOpenInThings("inbox");
-  const add=document.createElement("button"); add.type="button"; add.className="five-list-action";
+  const add=document.createElement("button"); add.type="button"; add.className="five-list-action five-heading-action";
   add.title="Adicionar à Entrada"; add.setAttribute("aria-label",add.title);
   add.innerHTML='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 2.5v11M2.5 8h11"/></svg>';
   add.onclick=()=>openCreate("todo",null,"inbox");
-  head.append(open,add); section.appendChild(head);
+  actions.append(open,add); head.appendChild(actions); section.appendChild(head);
   const data=FIVE_DATA.lists.inbox;
   if(data && !data.ok){ const error=document.createElement("div"); error.className="five-error";
     error.textContent=data.error||"Could not read Inbox"; section.appendChild(error); }
@@ -2666,6 +2687,9 @@ function fiveCreateAtTarget(target){
     if(!row && target.line){
       const last=target.line.previousElementSibling;
       if(last?.matches(".row[data-task-id]")){ row=last; before=false; }
+      else if(last?.matches(".five-task-group")){
+        const rows=last.querySelectorAll(".row[data-task-id]");
+        row=rows[rows.length-1]; before=false; }
       else if(destination==="inbox" && last?.matches(".five-embedded-inbox")){
         const inboxRows=last.querySelectorAll(".row[data-task-id]");
         row=inboxRows[inboxRows.length-1]; before=false; }
