@@ -266,6 +266,7 @@ def _clean(data: dict) -> dict[str, Any]:
     five_days = {"project_ids": list(dict.fromkeys(str(pid) for pid in project_ids
                  if isinstance(pid, str) and _SAFE_ID.fullmatch(pid))),
                  "hide_scheduled": bool(raw_five.get("hide_scheduled", True)),
+                 "embed_inbox": bool(raw_five.get("embed_inbox", False)),
                  "columns": columns}
     common = {"priority": priority, "links": link_table, "prefs": prefs,
               "timeblocks": tb, "attachments": att, "priority_levels": plevels,
@@ -284,7 +285,8 @@ def _clean(data: dict) -> dict[str, Any]:
 def _fresh() -> dict[str, Any]:
     return {"boards": [_default_board()], "priority": {}, "links": {}, "prefs": {},
             "timeblocks": {}, "attachments": {}, "priority_levels": [], "area_prefs": {},
-            "five_days": {"project_ids": [], "hide_scheduled": True, "columns": 5}}
+            "five_days": {"project_ids": [], "hide_scheduled": True,
+                          "embed_inbox": False, "columns": 5}}
 
 
 @contextmanager

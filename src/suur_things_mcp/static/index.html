@@ -520,6 +520,10 @@
     display:flex; align-items:center; border-bottom:1px solid #e6e7e9; background:#ebebee;
     color:#37373c; font:800 10px/1 "Avenir Next",sans-serif; letter-spacing:.08em; text-transform:uppercase; }
   .five-group span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .five-inbox-group { background:#eee6f4; color:#68427f; box-shadow:inset 3px 0 var(--five-accent); border-color:#ddd0e9; }
+  .five-inbox-group span { flex:1; }
+  .five-inbox-group .five-list-action { color:inherit; }
+  .five-embedded-inbox { box-shadow:inset 0 -2px #d7c6e4; }
   .five-lines { flex:1 0 70px; min-height:70px; position:relative; overflow:hidden; cursor:text;
     background:repeating-linear-gradient(to bottom,
     transparent 0,transparent 33px,#e9e9eb 33px,#e9e9eb 34px); }
@@ -562,6 +566,8 @@
   html[data-theme="dark"] .five-shell .row { border-color:#363a41; }
   html[data-theme="dark"] .five-shell .row:hover { background:#30343b; }
   html[data-theme="dark"] .five-group { background:#333840; color:#e7e9ec; border-color:#363a41; }
+  html[data-theme="dark"] .five-inbox-group { background:#392d43; color:#e8d2f6; border-color:#51405d; }
+  html[data-theme="dark"] .five-embedded-inbox { box-shadow:inset 0 -2px #655073; }
   html[data-theme="dark"] .five-placeholder { border-color:#50545b; color:#b2b7bf; }
   html[data-theme="dark"] .five-lines { background:repeating-linear-gradient(to bottom,
     transparent 0,transparent 33px,#34383e 33px,#34383e 34px); }
@@ -2336,7 +2342,10 @@ function leaveFiveDays(){
   closeFiveOpenMenu(); $("#five-open-btn").hidden=true;
   setSidebarCollapsed(FIVE_PRIOR_SIDEBAR);
 }
-function fivePrefs(){ return CONFIG.five_days||{project_ids:[],hide_scheduled:true,columns:5}; }
+function fivePrefs(){ return CONFIG.five_days||{project_ids:[],hide_scheduled:true,embed_inbox:false,columns:5}; }
+function fiveEmbeddedHost(){ const p=fivePrefs(); return p.embed_inbox?p.project_ids.find(id=>id!=="inbox")||null:null; }
+function fiveVisibleListIds(){ const ids=fivePrefs().project_ids||[]; return fiveEmbeddedHost()?ids.filter(id=>id!=="inbox"):ids; }
+function fiveReadListIds(){ const ids=fiveVisibleListIds(); return fiveEmbeddedHost()?[...new Set([...ids,"inbox"])]:ids; }
 function fiveColumnCount(){ return Math.min(7,Math.max(3,Number(fivePrefs().columns)||5)); }
 function fiveNowISO(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
 function fiveDate(iso){ const [y,m,d]=iso.split("-").map(Number); return new Date(y,m-1,d); }
@@ -2361,7 +2370,7 @@ function toggleFiveOpenMenu(){
   if($("#five-open-menu")){ closeFiveOpenMenu(); return; }
   const button=$("#five-open-btn"), menu=document.createElement("div");
   menu.id="five-open-menu"; menu.className="five-open-menu"; menu.setAttribute("role","menu");
-  const ids=fivePrefs().project_ids||[];
+  const ids=fiveReadListIds();
   if(!ids.length){ const empty=document.createElement("button"); empty.type="button";
     empty.textContent="Escolha uma lista abaixo"; empty.onclick=()=>{ closeFiveOpenMenu(); fiveOpenPicker(); };
     menu.appendChild(empty);
@@ -2429,7 +2438,7 @@ async function renderFiveDays(){
   if(request!==CONTENT_REQUEST || !FIVE_ACTIVE) return;
   FIVE_DATA.days=days.ok?days.days:[]; FIVE_DATA.dayError=days.ok?"":days.error||"Could not read dates";
   FIVE_TODAY=days.today||fiveNowISO(); fivePaint();
-  const ids=[...fivePrefs().project_ids]; let next=0;
+  const ids=fiveReadListIds(); let next=0;
   const loadNext=async()=>{
     while(next<ids.length && request===CONTENT_REQUEST && FIVE_ACTIVE){
       const id=ids[next++], data=await getJSON("/api/items?id="+encodeURIComponent(id));
@@ -2442,7 +2451,7 @@ async function renderFiveDays(){
 function fiveCollect(){
   const byId=new Map();
   for(const day of FIVE_DATA.days) for(const it of day.items) byId.set(it.uuid,it);
-  for(const id of fivePrefs().project_ids) for(const it of (FIVE_DATA.lists[id]?.items||[])) if(!byId.has(it.uuid)) byId.set(it.uuid,it);
+  for(const id of fiveReadListIds()) for(const it of (FIVE_DATA.lists[id]?.items||[])) if(!byId.has(it.uuid)) byId.set(it.uuid,it);
   LIST_ITEMS=[...byId.values()];
 }
 function fivePatch(id,patch){
@@ -2460,6 +2469,30 @@ function fiveAppendRows(col,items,key,source,headings=[]){
       if(it.status==="incomplete") fiveAttachDrag(row,it,source);
       col.appendChild(row); }
   }
+}
+function fiveAppendInboxSection(body,prefs){
+  const section=document.createElement("div"); section.className="five-embedded-inbox";
+  const head=document.createElement("div"); head.className="five-group five-inbox-group";
+  head.dataset.fiveInbox="1";
+  const title=document.createElement("span"); title.textContent="ENTRADA"; head.appendChild(title);
+  const open=document.createElement("button"); open.type="button"; open.className="five-list-action open-things";
+  open.textContent="↗"; open.title="Abrir Entrada no Things"; open.setAttribute("aria-label",open.title);
+  open.onclick=()=>fiveOpenInThings("inbox");
+  const add=document.createElement("button"); add.type="button"; add.className="five-list-action";
+  add.title="Adicionar à Entrada"; add.setAttribute("aria-label",add.title);
+  add.innerHTML='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 2.5v11M2.5 8h11"/></svg>';
+  add.onclick=()=>openCreate("todo",null,"inbox");
+  head.append(open,add); section.appendChild(head);
+  const data=FIVE_DATA.lists.inbox;
+  if(data && !data.ok){ const error=document.createElement("div"); error.className="five-error";
+    error.textContent=data.error||"Could not read Inbox"; section.appendChild(error); }
+  else if(data){ const items=(data.items||[]).filter(it=>!prefs.hide_scheduled || !it.start_date);
+    fiveAppendRows(section,items,null,{kind:"project",id:"inbox"});
+    if(!items.length){ const empty=document.createElement("div"); empty.className="five-empty";
+      empty.textContent="Entrada vazia"; section.appendChild(empty); } }
+  else { const loading=document.createElement("div"); loading.className="five-empty";
+    loading.textContent="Loading…"; section.appendChild(loading); }
+  body.appendChild(section);
 }
 let FIVE_PAINT_PENDING=false;
 function fivePaint(){
@@ -2500,17 +2533,19 @@ function fivePaint(){
     const lines=document.createElement("div"); lines.className="five-lines"; fiveActivateBlankLines(lines); body.appendChild(lines);
     col.append(head,body); dg.appendChild(col);
   }
-  const prefs=fivePrefs(), bar=$("#five-toolbar");
-  bar.innerHTML=`<span class="five-tab">Lists</span><span class="five-count">${prefs.project_ids.length} selected</span>
-    <span class="five-spacer"></span><label class="five-filter"><input type="checkbox" id="five-hide" ${prefs.hide_scheduled?"checked":""}>Hide scheduled</label>
+  const prefs=fivePrefs(), visibleIds=fiveVisibleListIds(), embeddedHost=fiveEmbeddedHost(), bar=$("#five-toolbar");
+  bar.innerHTML=`<span class="five-tab">Lists</span><span class="five-count">${visibleIds.length} selected</span>
+    <span class="five-spacer"></span><label class="five-filter" title="Mostrar Entrada como seção da primeira lista escolhida"><input type="checkbox" id="five-embed-inbox" ${prefs.embed_inbox?"checked":""}>Entrada na 1ª lista</label>
+    <label class="five-filter"><input type="checkbox" id="five-hide" ${prefs.hide_scheduled?"checked":""}>Hide scheduled</label>
     <button type="button" class="five-manage" id="five-manage">＋ Choose lists</button>`;
+  $("#five-embed-inbox").onchange=e=>fiveSavePrefs({...prefs,embed_inbox:e.target.checked});
   $("#five-hide").onchange=e=>fiveSavePrefs({...prefs,hide_scheduled:e.target.checked});
   $("#five-manage").onclick=fiveOpenPicker;
-  const showManageSlot=prefs.project_ids.length<count, slots=showManageSlot?count-1:prefs.project_ids.length;
-  lg.style.setProperty("--five-count",String(Math.max(count,prefs.project_ids.length)));
-  lg.classList.toggle("is-wide",prefs.project_ids.length>count);
+  const showManageSlot=visibleIds.length<count, slots=showManageSlot?count-1:visibleIds.length;
+  lg.style.setProperty("--five-count",String(Math.max(count,visibleIds.length)));
+  lg.classList.toggle("is-wide",visibleIds.length>count);
   for(let i=0;i<slots;i++){
-    const id=prefs.project_ids[i], col=document.createElement("section"); col.className="five-listcol";
+    const id=visibleIds[i], col=document.createElement("section"); col.className="five-listcol";
     if(id){ col.dataset.fiveProject=id; const p=fiveProject(id), data=FIVE_DATA.lists[id];
       const head=document.createElement("div"); head.className="five-listhead";
       const title=document.createElement("h2"); title.className="five-listname"; title.textContent=p?.title||"Project unavailable";
@@ -2525,6 +2560,7 @@ function fivePaint(){
       open.onclick=()=>fiveOpenInThings(id);
       head.append(open,add); col.appendChild(head);
       const body=document.createElement("div"); body.className="five-col-body";
+      if(id===embeddedHost) fiveAppendInboxSection(body,prefs);
       if(data && !data.ok){ const e=document.createElement("div"); e.className="five-error"; e.textContent=data.error||"Could not read project"; body.appendChild(e); }
       else if(data){ const items=(data.items||[]).filter(it=>!prefs.hide_scheduled || !it.start_date);
         fiveAppendRows(body,items,"heading_title",{kind:"project",id},data.headings||[]);
@@ -2595,13 +2631,14 @@ function fiveDropTarget(x,y){
   const at=document.elementFromPoint(x,y), row=at?.closest(".five-shell .row[data-task-id]");
   const date=at?.closest(".five-datecol[data-five-date]");
   const project=at?.closest(".five-listcol[data-five-project]");
+  const embeddedInbox=at?.closest(".five-embedded-inbox");
   const heading=at?.closest(".five-group[data-five-heading]");
   const line=at?.closest(".five-lines");
   if(!date && !project) return null;
-  return {row,date:date?.dataset.fiveDate,project:project?.dataset.fiveProject,
+  return {row,date:date?.dataset.fiveDate,project:embeddedInbox?"inbox":project?.dataset.fiveProject,
           heading:heading?.dataset.fiveHeading,headingId:heading?.dataset.fiveHeadingId,
           line,before:!!row && y<row.getBoundingClientRect().top+row.offsetHeight/2,
-          column:date||project};
+          column:embeddedInbox||date||project};
 }
 function fiveActivateBlankLines(lines){
   lines.title="Click to add a to-do here";
