@@ -143,6 +143,31 @@ def get(uuid: str) -> dict | None:
     return things.get(uuid, **_kw())
 
 
+def heading_ids(project_id: str, title: str) -> set[str]:
+    """Read back headings in one project without writing to the Things database."""
+    con = sqlite3.connect(_db_uri(immutable=False), uri=True)
+    try:
+        return {row[0] for row in con.execute(
+            "SELECT uuid FROM TMTask WHERE type=2 AND project=? AND title=? AND trashed=0",
+            (project_id, title),
+        )}
+    finally:
+        con.close()
+
+
+def project_headings(project_id: str) -> list[dict[str, str]]:
+    """All active headings, including those with no to-dos yet."""
+    con = sqlite3.connect(_db_uri(immutable=False), uri=True)
+    try:
+        return [{"uuid": uuid, "title": title} for uuid, title in con.execute(
+            "SELECT uuid, title FROM TMTask WHERE type=2 AND project=? AND trashed=0 "
+            "ORDER BY `index`",
+            (project_id,),
+        )]
+    finally:
+        con.close()
+
+
 # --- Digest ---------------------------------------------------------------
 
 _URL_RE = _re.compile(r'https?://[^\s<>"\)]+')
@@ -348,7 +373,9 @@ def list_items(list_id: str, completed_limit: int = 50, rollup: bool = True) -> 
             if proj_ids:
                 in_project = [_card(i) for i in todos(status="incomplete") if i.get("project") in proj_ids]
         return {"id": list_id, "kind": "area", "notes": notes, "rollup": rollup, "items": loose + in_project}
-    return {"id": list_id, "kind": "project", "notes": notes, "items": [_card(i) for i in todos(project_uuid=list_id)]}
+    return {"id": list_id, "kind": "project", "notes": notes,
+            "items": [_card(i) for i in todos(project_uuid=list_id)],
+            "headings": project_headings(list_id)}
 
 
 def five_days(start: datetime.date, count: int = 5) -> list[dict]:

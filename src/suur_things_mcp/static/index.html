@@ -477,6 +477,12 @@
   .five-datecol, .five-listcol { min-width:0; min-height:0; display:flex; flex-direction:column; }
   .five-datehead { flex:0 0 76px; min-width:0; }
   .five-listhead { flex:0 0 66px; min-width:0; position:relative; z-index:2; background:#f7f8fa; }
+  .five-listhead { display:flex; align-items:flex-start; gap:4px; }
+  .five-listhead .five-listname { flex:1; min-width:0; }
+  .five-list-action { border:0; background:transparent; color:var(--muted); width:25px; height:28px; padding:3px; cursor:pointer; border-radius:5px; }
+  .five-list-action:hover, .five-list-action:focus-visible { color:var(--text); background:#e5e6e9; }
+  html[data-theme="dark"] .five-list-action:hover, html[data-theme="dark"] .five-list-action:focus-visible { background:#343a42; }
+  .five-list-action svg { width:16px; height:16px; }
   .five-col-body { flex:1; display:flex; flex-direction:column; }
   .five-date { color:#a1a1a6; font:750 12px/1.1 "Avenir Next",sans-serif;
     letter-spacing:.15em; text-transform:uppercase; }
@@ -591,7 +597,9 @@
     <div class="viewtog ec-kind" id="ec-kind" style="display:none">
       <button class="vt on" data-kind="todo">To-Do</button>
       <button class="vt" data-kind="project">Project</button>
+      <button class="vt" data-kind="heading">Heading</button>
     </div>
+    <select id="ec-heading-project" aria-label="Project for heading" style="display:none;max-width:100%;margin:0 30px 12px 0"></select>
     <div class="ec-top">
       <span class="ec-box" id="ec-box" title="Complete"></span>
       <textarea class="ec-title" id="f-title" rows="1" placeholder="New To-Do"></textarea>
@@ -1085,7 +1093,7 @@ function resolveList(id){
 }
 
 // --- list view ---
-let LIST_ITEMS=[], LIST_KIND="", LIST_NOTES=null, CUR_FILTER=null, LIST_ROLLUP=true, LIST_ORDER_SYNCED=false, LIST_ORDER_WRITABLE=false, LIST_ORDER_ERROR="";
+let LIST_ITEMS=[], LIST_HEADINGS=[], LIST_KIND="", LIST_NOTES=null, CUR_FILTER=null, LIST_ROLLUP=true, LIST_ORDER_SYNCED=false, LIST_ORDER_WRITABLE=false, LIST_ORDER_ERROR="";
 let CONTENT_REQUEST=0;
 let ACTIVE_LIST_DRAG=null;
 let SUPPRESS_DRAG_CLICK=false;
@@ -1190,7 +1198,7 @@ async function renderList(sel, view="list"){
   const data=await getJSON("/api/items?id="+encodeURIComponent(sel.id));
   if(request!==CONTENT_REQUEST) return;
   if(!data.ok){ c.innerHTML=`<div class="err">${esc(data.error||"error")}</div>`; return; }
-  LIST_ITEMS=data.items; LIST_KIND=data.kind; LIST_NOTES=data.notes||null; CUR_FILTER=null; LIST_ROLLUP=data.rollup!==false;
+  LIST_ITEMS=data.items; LIST_HEADINGS=data.headings||[]; LIST_KIND=data.kind; LIST_NOTES=data.notes||null; CUR_FILTER=null; LIST_ROLLUP=data.rollup!==false;
   LIST_ORDER_SYNCED=data.order_synced===true; LIST_ORDER_WRITABLE=data.order_writable===true; LIST_ORDER_ERROR=data.order_error||"";
   $("#rollup-vt").classList.toggle("on", LIST_KIND==="area" && LIST_ROLLUP);
   LAST_ITEMS={}; LIST_ITEMS.forEach(it=>{ LAST_ITEMS[it.uuid]=it.title; });
@@ -1289,7 +1297,7 @@ function renderRows(){
   if(projs.length){ const g=document.createElement("div"); g.className="projcards"; projs.forEach(p=>g.appendChild(projCardEl(p))); c.appendChild(g); }
   let items=LIST_ITEMS;
   if(CUR_FILTER) items=items.filter(it=>(it.tags||[]).includes(CUR_FILTER));
-  if(!items.length){ if(!projs.length) c.appendChild(emptyStateEl()); return; }
+  if(!items.length && !LIST_HEADINGS.length){ if(!projs.length) c.appendChild(emptyStateEl()); return; }
   // Today: overdue-deadline items get their own red header up top instead of
   // hiding inside project groups — and a finished Today earns a calm moment.
   if(SEL && SEL.id==="today" && !CUR_FILTER){
@@ -1317,6 +1325,13 @@ function renderRows(){
   for(const g of groups){ if(g.key){ const h=document.createElement("div"); h.className="grp-head"; h.dataset.heading=g.key; h.textContent=g.key;
     if(LIST_KIND==="project") headingDrop(h, g.key);   // drag a task onto a heading to move it there
     c.appendChild(h);} for(const it of g.items) c.appendChild(rowEl(it)); }
+  if(LIST_KIND==="project" && !CUR_FILTER){
+    const shown=new Set(groups.map(g=>g.key).filter(Boolean));
+    for(const heading of LIST_HEADINGS){ if(shown.has(heading.title)) continue;
+      const h=document.createElement("div"); h.className="grp-head"; h.dataset.heading=heading.title; h.textContent=heading.title;
+      headingDrop(h,heading.title); c.appendChild(h);
+    }
+  }
 }
 function emptyStateEl(){
   const e=document.createElement("div"); e.className="empty";
@@ -1799,7 +1814,7 @@ async function deleteBoard(){
 }
 
 // --- edit dialog (Things-style card; saves on close only if changed) ---
-let EDIT_ORIG=null, WHEN_SEED=null, WHEN_CLEAR=false, EDIT_NEW=false, EDIT_KIND="todo", PENDING_ATTACH=[], EDIT_PLACEMENT=null;
+let EDIT_ORIG=null, WHEN_SEED=null, WHEN_CLEAR=false, EDIT_NEW=false, EDIT_KIND="todo", PENDING_ATTACH=[], EDIT_PLACEMENT=null, EDIT_DESTINATION=null;
 const WHEN_OPTS=[["today","Today"],["evening","This Evening"],["tomorrow","Tomorrow"],["anytime","Anytime"],["someday","Someday"]];
 // Floor the height so a textarea can never collapse to 0 — which made the create
 // card's title field invisible (the checkbox is hidden there, so the flex row had
@@ -1873,8 +1888,9 @@ function toggleEditor(id, tool){
     const inp=ed.querySelector("input"); if(inp&&!inp.disabled) setTimeout(()=>inp.focus(),0); }
 }
 // --- create mode: the edit card, reused for a brand-new to-do/project ---
-function openCreate(kind, placement=null){
+function openCreate(kind, placement=null, destination=null){
   EDIT_NEW=true; EDIT_ID=null; EDIT_KIND=kind||"todo"; WHEN_CLEAR=false; clearPending();
+  EDIT_DESTINATION=destination;
   $("#when-remove").style.display="none";
   ["f-title","f-notes","f-when","f-deadline","f-tags"].forEach(id=>{ $("#"+id).value=""; $("#"+id).disabled=false; });
   $("#f-checklist").innerHTML="";
@@ -1895,8 +1911,27 @@ function openCreate(kind, placement=null){
 }
 function setEditKind(k){
   EDIT_KIND=k; document.querySelectorAll("#ec-kind .vt").forEach(b=>b.classList.toggle("on", b.dataset.kind===k));
+  const heading=k==="heading", picker=$("#ec-heading-project");
+  picker.style.display=heading?"block":"none";
+  if(heading){
+    const selected=(EDIT_DESTINATION&&EDIT_DESTINATION!=="inbox"?EDIT_DESTINATION:null) || (!EDIT_DESTINATION&&SEL?.kind==="project"?SEL.id:null);
+    picker.replaceChildren();
+    const choose=document.createElement("option"); choose.value=""; choose.textContent="Choose a project"; picker.appendChild(choose);
+    for(const p of fiveAllProjects().filter(p=>p.uuid!=="inbox")){
+      const option=document.createElement("option"); option.value=p.uuid; option.textContent=p.title; picker.appendChild(option);
+    }
+    if(selected && [...picker.options].some(o=>o.value===selected)) picker.value=selected;
+  }
+  $("#f-title").placeholder=heading?"New Heading":k==="project"?"New Project":"New To-Do";
+  $("#f-notes").style.display=heading?"none":"";
+  $("#ec-pills").style.display=heading?"none":"";
+  $("#ec-attach").style.display=heading?"none":"";
+  $("#f-checklist").style.display=heading?"none":"";
+  ["tool-when","tool-deadline","tool-checklist","tool-tags","tool-attach"].forEach(id=>$("#"+id).style.display=heading?"none":"");
   let w;
   if(k==="project") w=(SEL&&SEL.kind==="area")?("in area: "+SEL.title):"top level";
+  else if(heading) w="in the selected project";
+  else if(EDIT_DESTINATION) w="in: "+(fiveProject(EDIT_DESTINATION)?.title||"Inbox");
   else w=(SEL&&(SEL.kind==="project"||SEL.kind==="area"))?("in: "+SEL.title):"to Inbox";
   const e=$("#ec-where"); e.textContent="→ "+w; e.style.display="inline";
 }
@@ -1925,12 +1960,17 @@ async function createFromCard(){
   const body={kind:EDIT_KIND, title}; const notes=$("#f-notes").value.trim(); if(notes) body.notes=notes;
   // Snapshot the staged images at submit time: the /api/add wait is async, and a
   // paste/remove/drop mid-flight would otherwise change what we attach.
-  const staged=PENDING_ATTACH.slice();
+  const staged=EDIT_KIND==="heading"?[]:PENDING_ATTACH.slice();
   if(staged.length || EDIT_PLACEMENT) body.resolve=true;   // UUID needed for images and native placement
   if(EDIT_PLACEMENT) body.placement=EDIT_PLACEMENT;
   if(EDIT_KIND==="project"){ if(SEL&&SEL.kind==="area") body.area_id=SEL.id; }
+  else if(EDIT_KIND==="heading"){
+    body.list_id=$("#ec-heading-project").value;
+    if(!body.list_id){ alert("Choose a project for the heading."); $("#ec-heading-project").focus(); return; }
+  }
   else { if(when) body.when=when; if(deadline) body.deadline=deadline; if(tags.length) body.tags=tags;
-         if(SEL&&(SEL.kind==="project"||SEL.kind==="area")) body.list_id=SEL.id; }
+         if(EDIT_DESTINATION && EDIT_DESTINATION!=="inbox") body.list_id=EDIT_DESTINATION;
+         else if(!EDIT_DESTINATION && SEL&&(SEL.kind==="project"||SEL.kind==="area")) body.list_id=SEL.id; }
   // Resolving + attaching an image can take a few seconds (Things commits the DB
   // async). Show progress and lock the button so the wait doesn't look like a dead click.
   const btn=$("#ec-add"); const label=btn.textContent;
@@ -1955,6 +1995,8 @@ async function createFromCard(){
 }
 async function openEdit(uuid){
   EDIT_ID=uuid; EDIT_NEW=false; WHEN_CLEAR=false; clearPending();
+  $("#ec-heading-project").style.display="none";
+  ["f-notes","ec-pills","ec-attach","f-checklist","tool-when","tool-deadline","tool-checklist","tool-tags","tool-attach"].forEach(id=>$("#"+id).style.display="");
   $("#ec-kind").style.display="none"; $("#ec-box").style.display=""; $("#ec-box").classList.remove("done");
   $("#ec-add").style.display="none"; $("#ec-where").style.display="none";
   document.querySelectorAll("#edit-overlay .ec-link").forEach(b=>b.style.display="");
@@ -2403,12 +2445,26 @@ function fivePaint(){
     if(id){ col.dataset.fiveProject=id; const p=fiveProject(id), data=FIVE_DATA.lists[id];
       const head=document.createElement("div"); head.className="five-listhead";
       const title=document.createElement("h2"); title.className="five-listname"; title.textContent=p?.title||"Project unavailable";
-      title.title=title.textContent; head.appendChild(title); col.appendChild(head);
+      title.title=title.textContent; head.appendChild(title);
+      const add=document.createElement("button"); add.type="button"; add.className="five-list-action";
+      add.title="Add to "+title.textContent; add.setAttribute("aria-label",add.title);
+      add.innerHTML='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 2.5v11M2.5 8h11"/></svg>';
+      add.onclick=()=>openCreate("todo",null,id); head.appendChild(add);
+      const open=document.createElement("button"); open.type="button"; open.className="five-list-action";
+      open.title="Open "+title.textContent+" in Things"; open.setAttribute("aria-label",open.title);
+      open.innerHTML='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 3h4.5v4.5M13 3 7 9"/><path d="M12.5 9v3a1 1 0 0 1-1 1h-8a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1h3"/></svg>';
+      open.onclick=()=>{ window.location.href="things:///show?id="+encodeURIComponent(id); };
+      head.appendChild(open); col.appendChild(head);
       const body=document.createElement("div"); body.className="five-col-body";
       if(data && !data.ok){ const e=document.createElement("div"); e.className="five-error"; e.textContent=data.error||"Could not read project"; body.appendChild(e); }
       else if(data){ const items=(data.items||[]).filter(it=>!prefs.hide_scheduled || !it.start_date);
         fiveAppendRows(body,items,"heading_title",{kind:"project",id});
-        if(!items.length){ const e=document.createElement("div"); e.className="five-empty"; e.textContent="No unscheduled tasks"; body.appendChild(e); }
+        const shown=new Set(items.map(it=>it.heading_title).filter(Boolean));
+        for(const heading of (data.headings||[])){ if(shown.has(heading.title)) continue;
+          const h=document.createElement("div"); h.className="five-group"; h.dataset.fiveHeading=heading.title;
+          const label=document.createElement("span"); label.textContent=heading.title; label.title=heading.title; h.appendChild(label); body.appendChild(h);
+        }
+        if(!items.length && !(data.headings||[]).length){ const e=document.createElement("div"); e.className="five-empty"; e.textContent="No unscheduled tasks"; body.appendChild(e); }
         if(data.order_synced===false){ const e=document.createElement("div"); e.className="five-error"; e.textContent="Native order unavailable; precise drops are disabled."; body.appendChild(e); }
       } else { const e=document.createElement("div"); e.className="five-empty"; e.textContent="Loading…"; body.appendChild(e); }
       const lines=document.createElement("div"); lines.className="five-lines"; body.appendChild(lines);

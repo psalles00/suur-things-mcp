@@ -33,6 +33,7 @@ import shutil
 import socket
 import sqlite3
 import subprocess
+import tempfile
 import threading
 import time
 import urllib.request
@@ -441,7 +442,7 @@ def _pulse_repos(item: dict) -> list[dict[str, Any]]:
 
 
 async def _add(request: Request) -> JSONResponse:
-    """Quick-add a to-do or project from the dashboard. Create-only → no token needed.
+    """Quick-add a to-do, project, or heading from the dashboard.
     (Areas can't be created — the URL Scheme has no add-area command.)"""
     body = await _json_body(request)
     if body is None:
@@ -450,6 +451,40 @@ async def _add(request: Request) -> JSONResponse:
     title = (body.get("title") or "").strip()
     if not title:
         return JSONResponse({"ok": False, "error": "missing title"})
+    if kind not in ("todo", "project", "heading"):
+        return JSONResponse({"ok": False, "error": "invalid kind"}, status_code=400)
+    if kind == "heading":
+        project_id = body.get("list_id")
+        if (not isinstance(project_id, str) or not re.fullmatch(r"[A-Za-z0-9]{20,30}", project_id)
+                or not (project := await run_in_threadpool(lambda: reads.get(project_id)))
+                or project.get("type") != "project"):
+            return JSONResponse({"ok": False, "error": "Choose a Things project for the heading."}, status_code=400)
+        before = await run_in_threadpool(lambda: reads.heading_ids(project_id, title))
+
+        def create_heading() -> subprocess.CompletedProcess[str]:
+            # Things' URL Scheme cannot add a heading to an existing project.
+            # The user's installed Shortcut calls Things' official Create Heading action.
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".json", encoding="utf-8") as payload:
+                json.dump({"operation": "create", "target_id": project_id, "value": title}, payload)
+                payload.flush()
+                return subprocess.run(
+                    ["shortcuts", "run", "Things — Gerenciar Headings 3", "--input-path", payload.name],
+                    capture_output=True, text=True, timeout=45,
+                )
+
+        try:
+            result = await run_in_threadpool(create_heading)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return JSONResponse({"ok": False, "error": f"Things heading Shortcut failed: {exc}"})
+        if result.returncode:
+            return JSONResponse({"ok": False, "error": "Things heading Shortcut failed: " +
+                                 (result.stderr.strip() or "check that Things — Gerenciar Headings 3 is installed")})
+        for _ in range(12):
+            await asyncio.sleep(0.15)
+            created = await run_in_threadpool(lambda: reads.heading_ids(project_id, title) - before)
+            if created:
+                return JSONResponse({"ok": True, "uuid": next(iter(created))})
+        return JSONResponse({"ok": False, "error": "Shortcut finished, but Things did not confirm the heading. Check the project before retrying."})
     placement = body.get("placement")
     if placement is not None:
         if kind != "todo" or not isinstance(placement, dict):
