@@ -260,9 +260,13 @@ def _clean(data: dict) -> dict[str, Any]:
     aprefs = _clean_area_prefs(data)
     raw_five = data.get("five_days") if isinstance(data.get("five_days"), dict) else {}
     project_ids = raw_five.get("project_ids") if isinstance(raw_five.get("project_ids"), list) else []
+    columns = raw_five.get("columns", 5)
+    if isinstance(columns, bool) or not isinstance(columns, int) or not 3 <= columns <= 7:
+        columns = 5
     five_days = {"project_ids": list(dict.fromkeys(str(pid) for pid in project_ids
                  if isinstance(pid, str) and _SAFE_ID.fullmatch(pid))),
-                 "hide_scheduled": bool(raw_five.get("hide_scheduled", True))}
+                 "hide_scheduled": bool(raw_five.get("hide_scheduled", True)),
+                 "columns": columns}
     common = {"priority": priority, "links": link_table, "prefs": prefs,
               "timeblocks": tb, "attachments": att, "priority_levels": plevels,
               "area_prefs": aprefs, "five_days": five_days}
@@ -280,7 +284,7 @@ def _clean(data: dict) -> dict[str, Any]:
 def _fresh() -> dict[str, Any]:
     return {"boards": [_default_board()], "priority": {}, "links": {}, "prefs": {},
             "timeblocks": {}, "attachments": {}, "priority_levels": [], "area_prefs": {},
-            "five_days": {"project_ids": [], "hide_scheduled": True}}
+            "five_days": {"project_ids": [], "hide_scheduled": True, "columns": 5}}
 
 
 @contextmanager

@@ -251,10 +251,13 @@ async def _five_days(request: Request) -> JSONResponse:
         start = datetime.date.fromisoformat(raw)
         if start.year < 1970 or start.year > 2099:
             raise ValueError("date outside supported range")
+        count = int(request.query_params.get("count", "5"))
+        if count < 3 or count > 7:
+            raise ValueError("count outside supported range")
     except ValueError:
-        return JSONResponse({"ok": False, "error": "invalid start date"}, status_code=400)
+        return JSONResponse({"ok": False, "error": "invalid start date or column count"}, status_code=400)
     try:
-        days = await run_in_threadpool(reads.five_days, start)
+        days = await run_in_threadpool(reads.five_days, start, count)
         return JSONResponse({"ok": True, "days": days, "today": datetime.date.today().isoformat()})
     except Exception as exc:  # noqa: BLE001
         return JSONResponse({"ok": False, "error": str(exc)})
@@ -549,6 +552,20 @@ async def _reorder(request: Request) -> JSONResponse:
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=409)
 
 
+async def _move_to_inbox(request: Request) -> JSONResponse:
+    if not _auth_token():
+        return JSONResponse({"ok": False, "error": "THINGS_AUTH_TOKEN not set"}, status_code=403)
+    body = await _json_body(request)
+    if body is None or not isinstance(body.get("id"), str):
+        return JSONResponse({"ok": False, "error": "invalid task ID"}, status_code=400)
+    try:
+        async with _ORDER_LOCK:
+            await run_in_threadpool(native_order.move_to_inbox, body["id"])
+        return JSONResponse({"ok": True})
+    except native_order.NativeOrderError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=409)
+
+
 async def _rename(request: Request) -> JSONResponse:
     """Rename a project inline from the dashboard header. (Board renames are client-side
     config; areas can't be renamed — the Things URL Scheme has no area-update command.)"""
@@ -806,6 +823,7 @@ def create_app(port: int = DEFAULT_PORT) -> Starlette:
             Route("/api/rename", _rename, methods=["POST"]),
             Route("/api/add", _add, methods=["POST"]),
             Route("/api/reorder", _reorder, methods=["POST"]),
+            Route("/api/move-to-inbox", _move_to_inbox, methods=["POST"]),
             Route("/api/open", _open, methods=["POST"]),
             Route("/api/attachment", _attachment),
             Route("/api/attach", _attach, methods=["POST"]),

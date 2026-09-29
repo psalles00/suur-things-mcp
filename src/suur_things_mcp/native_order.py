@@ -29,6 +29,14 @@ function run(argv) {
     return JSON.stringify(container.toDos().map(function(x) { return String(x.id()); }));
 }
 '''
+_MOVE_TO_INBOX_SCRIPT = r'''
+on run argv
+    set taskId to item 1 of argv
+    tell application "Things3"
+        move (to do id taskId) to list "Inbox"
+    end tell
+end run
+'''
 
 
 class NativeOrderError(RuntimeError):
@@ -60,6 +68,30 @@ def order_writable() -> bool:
                               timeout=3).returncode == 0
     except (OSError, subprocess.TimeoutExpired):
         return False
+
+
+def move_to_inbox(task_id: str) -> None:
+    """Use Things' documented move command, then confirm the task is in Inbox."""
+    if not _ID.fullmatch(task_id):
+        raise NativeOrderError("Invalid task ID.")
+    task = reads.get(task_id)
+    if not task or task.get("type") != "to-do" or task.get("status") != "incomplete":
+        raise NativeOrderError("Task is no longer available in Things.")
+    try:
+        result = subprocess.run(
+            ["/usr/bin/osascript", "-e", _MOVE_TO_INBOX_SCRIPT, "--", task_id],
+            capture_output=True, text=True, timeout=15,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise NativeOrderError(f"Could not move task to Inbox: {exc}") from exc
+    if result.returncode:
+        raise NativeOrderError("Could not move task to Inbox: " + result.stderr.strip()[:300])
+    for attempt in range(35):
+        if attempt:
+            time.sleep(0.1)
+        if any(item.get("uuid") == task_id for item in reads.inbox()):
+            return
+    raise NativeOrderError("Things did not confirm the task in Inbox. Refresh both lists.")
 
 
 def _check_access() -> None:

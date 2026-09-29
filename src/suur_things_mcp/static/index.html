@@ -386,7 +386,7 @@
   .panel { background:var(--main-bg); border-radius:14px; width:520px; max-width:100%; max-height:84vh; overflow-y:auto; box-shadow:0 16px 50px rgba(0,0,0,.35); padding:22px 24px; }
   .panel h2 { margin:0 0 4px; font-size:18px; } .panel .sub { color:var(--muted); font-size:12px; margin-bottom:16px; }
   .field { margin-bottom:14px; } .field label { display:block; font-size:12px; color:var(--muted); margin-bottom:5px; }
-  .field input:not([type=checkbox]), .field textarea { width:100%; font:inherit; color:var(--text); background:var(--side-bg); border:1px solid var(--divider); border-radius:8px; padding:8px 10px; }
+  .field input:not([type=checkbox]), .field textarea, .field select { width:100%; font:inherit; color:var(--text); background:var(--side-bg); border:1px solid var(--divider); border-radius:8px; padding:8px 10px; }
   .field input[type=checkbox] { width:16px; height:16px; flex:0 0 16px; margin:0; }
   .field textarea { min-height:80px; resize:vertical; }
   .checks { margin:8px 0 0; line-height:1.8; } .checks .ci { color:var(--muted); font-size:13px; } .checks .ci.done { text-decoration:line-through; }
@@ -468,7 +468,8 @@
   .five-lists-viewport::-webkit-scrollbar { height:0; }
   .five-lists-viewport:hover::-webkit-scrollbar { height:7px; }
   .five-lists-viewport::-webkit-scrollbar-thumb { background:#b9bbc2; border-radius:7px; }
-  .five-days-grid, .five-lists-grid { min-width:1050px; display:grid; grid-template-columns:repeat(5,minmax(0,1fr));
+  .five-days-grid, .five-lists-grid { min-width:max(1050px,calc(var(--five-visible,5) * 200px)); display:grid;
+    grid-template-columns:repeat(var(--five-visible,5),minmax(0,1fr));
     column-gap:clamp(24px,4vw,80px); padding-left:clamp(30px,3.4vw,68px); padding-right:clamp(30px,2.3vw,46px); }
   .five-days-grid { width:100%; height:100%; padding-top:17px; padding-bottom:20px; }
   .five-lists-grid { width:100%; height:100%; padding-top:44px; padding-bottom:24px; }
@@ -653,7 +654,9 @@
 
 <div class="overlay" id="prefs-overlay">
   <div class="panel">
-    <h2>Preferences</h2><div class="sub">How "Open in editor / terminal" launches. Saved locally.</div>
+    <h2>Preferences</h2><div class="sub">Saved locally.</div>
+    <div class="field"><label for="pf-five-columns">Five Days: colunas visíveis</label>
+      <select id="pf-five-columns"><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option></select></div>
     <div class="field"><label>Editor command (on your PATH — e.g. code, cursor, subl, idea)</label><input id="pf-editor" placeholder="code"></div>
     <div class="field"><label>Terminal app (e.g. Ghostty, iTerm, Terminal, Warp)</label><input id="pf-terminal" placeholder="Terminal"></div>
     <div class="hint">Blank = defaults (editor falls back to Finder; terminal to Terminal.app).</div>
@@ -2142,13 +2145,17 @@ async function applyOrganize(){
   alert(`Applied ${n} task update(s).`);
 }
 
-// preferences (editor + terminal app)
-function openPrefs(){ const p=CONFIG.prefs||{}; $("#pf-editor").value=p.editor||""; $("#pf-terminal").value=p.terminal||""; openOverlay("prefs-overlay"); }
+// preferences (Five Days columns, editor, and terminal app)
+function openPrefs(){ const p=CONFIG.prefs||{}; $("#pf-editor").value=p.editor||"";
+  $("#pf-terminal").value=p.terminal||""; $("#pf-five-columns").value=String(fiveColumnCount()); openOverlay("prefs-overlay"); }
 async function savePrefs(){
   const prefs={editor:$("#pf-editor").value.trim(), terminal:$("#pf-terminal").value.trim()};
-  const r=await postJSON("/api/config", {prefs});
-  if(r.ok) CONFIG=r.config;
+  const five_days={...fivePrefs(),columns:Number($("#pf-five-columns").value)};
+  const r=await postJSON("/api/config", {prefs,five_days});
+  if(!r.ok){ alert("Could not save preferences: "+(r.error||"unknown error")); return; }
+  CONFIG=r.config;
   closeOverlay("prefs-overlay");
+  if(FIVE_ACTIVE) renderFiveDays();
 }
 
 // --- quick add: natural-language parse helpers (used by the create card) ---
@@ -2246,7 +2253,7 @@ async function commitHeadRename(){
   h.addEventListener("blur", commitHeadRename);
 })();
 
-// --- Five Days: five Things dates above four user-selected projects ---
+// --- Five Days: configurable Things dates above user-selected lists ---
 let FIVE_ACTIVE=false, FIVE_START=null, FIVE_TODAY=null, FIVE_DATA={days:[],lists:{}}, FIVE_PRIOR_SIDEBAR=false;
 let SIDEBAR_MANUAL=localStorage.getItem("suur-sidebar-collapsed")==="1";
 function setSidebarCollapsed(on){
@@ -2259,17 +2266,20 @@ function leaveFiveDays(){
   FIVE_ACTIVE=false; $(".main").classList.remove("five-mode");
   setSidebarCollapsed(FIVE_PRIOR_SIDEBAR);
 }
-function fivePrefs(){ return CONFIG.five_days||{project_ids:[],hide_scheduled:true}; }
+function fivePrefs(){ return CONFIG.five_days||{project_ids:[],hide_scheduled:true,columns:5}; }
+function fiveColumnCount(){ return Math.min(7,Math.max(3,Number(fivePrefs().columns)||5)); }
 function fiveNowISO(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
 function fiveDate(iso){ const [y,m,d]=iso.split("-").map(Number); return new Date(y,m-1,d); }
 function fiveShift(n){ const d=fiveDate(FIVE_START); d.setDate(d.getDate()+n);
   FIVE_START=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
   renderFiveDays(); }
 function fiveProject(id){
+  if(id==="inbox") return {uuid:"inbox",title:"Entrada"};
   for(const a of (SIDEBAR?.areas||[])){ const p=a.projects.find(p=>p.uuid===id); if(p) return p; }
   return (SIDEBAR?.arealess||[]).find(p=>p.uuid===id)||null;
 }
-function fiveAllProjects(){ return (SIDEBAR?.areas||[]).flatMap(a=>a.projects).concat(SIDEBAR?.arealess||[]); }
+function fiveAllProjects(){ return [{uuid:"inbox",title:"Entrada (Inbox)"},
+  ...(SIDEBAR?.areas||[]).flatMap(a=>a.projects),...(SIDEBAR?.arealess||[])]; }
 function fiveUpdateColumnWidth(){
   const day=$("#five-days-grid .five-datecol"), lists=$("#five-lists-grid");
   if(day && lists) lists.style.setProperty("--five-col-width",day.getBoundingClientRect().width+"px");
@@ -2279,15 +2289,16 @@ function fiveShell(){
   const c=$("#content"); c.classList.remove("swap-in");
   c.innerHTML=`<div class="five-shell"><nav class="five-nav" aria-label="Five-day navigation">
     <span class="five-caption">SUUR · FIVE DAYS</span>
-    <button type="button" data-shift="-5" aria-label="Back five days">«</button>
+    <button type="button" data-shift="-page" aria-label="Voltar uma página">«</button>
     <button type="button" data-shift="-1" aria-label="Previous day">‹</button>
     <button type="button" class="five-today" id="five-reset">Today</button>
     <button type="button" data-shift="1" aria-label="Next day">›</button>
-    <button type="button" data-shift="5" aria-label="Forward five days">»</button></nav>
+    <button type="button" data-shift="page" aria-label="Avançar uma página">»</button></nav>
     <div class="five-scroller"><div class="five-days-viewport"><div class="five-days-grid" id="five-days-grid"></div></div>
     <div class="five-toolbar" id="five-toolbar"></div>
     <div class="five-lists-viewport"><div class="five-lists-grid" id="five-lists-grid"></div></div></div></div>`;
-  c.querySelectorAll("[data-shift]").forEach(b=>b.onclick=()=>fiveShift(Number(b.dataset.shift)));
+  c.querySelectorAll("[data-shift]").forEach(b=>b.onclick=()=>{
+    const shift=b.dataset.shift; fiveShift(shift==="page"?fiveColumnCount():shift==="-page"?-fiveColumnCount():Number(shift)); });
   $("#five-reset").onclick=()=>{ FIVE_START=fiveNowISO(); renderFiveDays(); };
 }
 async function renderFiveDays(){
@@ -2298,7 +2309,7 @@ async function renderFiveDays(){
   $(".main").classList.remove("fill"); $(".main").classList.add("five-mode");
   if(!$("#content .five-shell")) fiveShell();
   fivePaint();
-  const days=await getJSON("/api/five-days?start="+encodeURIComponent(FIVE_START));
+  const days=await getJSON("/api/five-days?start="+encodeURIComponent(FIVE_START)+"&count="+fiveColumnCount());
   if(request!==CONTENT_REQUEST || !FIVE_ACTIVE) return;
   FIVE_DATA.days=days.ok?days.days:[]; FIVE_DATA.dayError=days.ok?"":days.error||"Could not read dates";
   FIVE_TODAY=days.today||fiveNowISO(); fivePaint();
@@ -2345,12 +2356,14 @@ function fivePaint(){
     return;
   }
   const dg=$("#five-days-grid"), lg=$("#five-lists-grid");
+  const count=fiveColumnCount();
+  dg.style.setProperty("--five-visible",count); lg.style.setProperty("--five-visible",count);
   const scrolls=new Map([...document.querySelectorAll(".five-col-body[data-five-scroll]")].map(el=>
     [el.dataset.fiveScroll,el.scrollTop]));
   const daysX=dg.parentElement.scrollLeft, listsX=lg.parentElement.scrollLeft;
   dg.replaceChildren(); lg.replaceChildren(); fiveCollect();
   const today=FIVE_TODAY||fiveNowISO();
-  for(let i=0;i<5;i++){
+  for(let i=0;i<count;i++){
     const d=fiveDate(FIVE_START); d.setDate(d.getDate()+i);
     const iso=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
     const col=document.createElement("section"); col.className="five-datecol"+(iso===today?" is-today":""); col.dataset.fiveDate=iso;
@@ -2368,12 +2381,12 @@ function fivePaint(){
   const prefs=fivePrefs(), bar=$("#five-toolbar");
   bar.innerHTML=`<span class="five-tab">Lists</span><span class="five-count">${prefs.project_ids.length} selected</span>
     <span class="five-spacer"></span><label class="five-filter"><input type="checkbox" id="five-hide" ${prefs.hide_scheduled?"checked":""}>Hide scheduled</label>
-    <button type="button" class="five-manage" id="five-manage">＋ Choose projects</button>`;
+    <button type="button" class="five-manage" id="five-manage">＋ Choose lists</button>`;
   $("#five-hide").onchange=e=>fiveSavePrefs({...prefs,hide_scheduled:e.target.checked});
   $("#five-manage").onclick=fiveOpenPicker;
-  const showManageSlot=prefs.project_ids.length<5, slots=showManageSlot?4:prefs.project_ids.length;
-  lg.style.setProperty("--five-count",String(Math.max(5,prefs.project_ids.length)));
-  lg.classList.toggle("is-wide",prefs.project_ids.length>5);
+  const showManageSlot=prefs.project_ids.length<count, slots=showManageSlot?count-1:prefs.project_ids.length;
+  lg.style.setProperty("--five-count",String(Math.max(count,prefs.project_ids.length)));
+  lg.classList.toggle("is-wide",prefs.project_ids.length>count);
   for(let i=0;i<slots;i++){
     const id=prefs.project_ids[i], col=document.createElement("section"); col.className="five-listcol";
     if(id){ col.dataset.fiveProject=id; const p=fiveProject(id), data=FIVE_DATA.lists[id];
@@ -2389,7 +2402,7 @@ function fivePaint(){
       } else { const e=document.createElement("div"); e.className="five-empty"; e.textContent="Loading…"; body.appendChild(e); }
       const lines=document.createElement("div"); lines.className="five-lines"; body.appendChild(lines);
       col.appendChild(body);
-    } else { const b=document.createElement("button"); b.className="five-placeholder"; b.textContent="＋ CHOOSE A PROJECT";
+    } else { const b=document.createElement("button"); b.className="five-placeholder"; b.textContent="＋ CHOOSE A LIST";
       b.onclick=fiveOpenPicker; col.appendChild(b); }
     lg.appendChild(col);
   }
@@ -2410,8 +2423,8 @@ function fiveOpenPicker(){
   document.getElementById("five-picker-overlay")?.remove();
   const overlay=document.createElement("div"); overlay.className="overlay show"; overlay.id="five-picker-overlay";
   const panel=document.createElement("div"); panel.className="panel five-picker";
-  panel.innerHTML=`<div class="panel-head"><h2>Choose projects</h2><button class="btn ghost" id="five-picker-close">✕</button></div>
-    <input class="field" id="five-picker-search" placeholder="Search projects" aria-label="Search projects">
+  panel.innerHTML=`<div class="panel-head"><h2>Choose lists</h2><button class="btn ghost" id="five-picker-close">✕</button></div>
+    <input class="field" id="five-picker-search" placeholder="Search lists and projects" aria-label="Search lists and projects">
     <div class="five-picker-list" id="five-picker-list"></div>`;
   overlay.appendChild(panel); document.body.appendChild(overlay);
   const close=()=>overlay.remove(); overlay.onclick=e=>{if(e.target===overlay) close();};
@@ -2509,16 +2522,24 @@ async function fivePerformDrop(it,source,target,row){
           alert("Things cannot confirm a relative position between these tasks.");
         }
       }
-    } else if(target.project && source.kind==="project"){
+    } else if(target.project && (source.kind==="project" || source.kind==="date")){
       const dest=FIVE_DATA.lists[target.project], targetItem=(dest?.items||[]).find(x=>x.uuid===targetId);
       if(targetId && (!targetItem || !dest?.order_synced || !dest?.order_writable))
         throw Error("Precise placement requires the native Things order helper");
-      const heading=targetItem?.heading_title??target.heading??"";
-      if(source.id!==target.project){
-        const r=await postJSON("/api/update",{id:it.uuid,list_id:target.project,heading});
-        if(!r.ok) throw Error(r.error||"Could not move task");
-        if(!await fiveWaitItem(it.uuid,item=>item.project===target.project &&
-              (item.heading_title||"")===heading)) throw Error("Things did not confirm the destination project");
+      const heading=target.project==="inbox"?"":targetItem?.heading_title??target.heading??"";
+      if(source.kind!=="project" || source.id!==target.project){
+        if(target.project==="inbox"){
+          const r=await postJSON("/api/move-to-inbox",{id:it.uuid});
+          if(!r.ok) throw Error(r.error||"Could not move task to Inbox");
+        } else {
+          const body={id:it.uuid,list_id:target.project,heading};
+          if(source.kind==="date") body.when="";
+          const r=await postJSON("/api/update",body);
+          if(!r.ok) throw Error(r.error||"Could not move task");
+          if(!await fiveWaitItem(it.uuid,item=>item.project===target.project &&
+                (item.heading_title||"")===heading && (source.kind!=="date" || !item.start_date)))
+            throw Error("Things did not confirm the destination project");
+        }
       } else if((targetId || target.heading!==undefined) && (it.heading_title||"")!==heading){
         const r=await postJSON("/api/update",{id:it.uuid,heading});
         if(!r.ok) throw Error(r.error||"Could not move heading");

@@ -351,11 +351,11 @@ def list_items(list_id: str, completed_limit: int = 50, rollup: bool = True) -> 
     return {"id": list_id, "kind": "project", "notes": notes, "items": [_card(i) for i in todos(project_uuid=list_id)]}
 
 
-def five_days(start: datetime.date) -> list[dict]:
-    """Five calendar columns. Today follows Things' own Today list semantics."""
+def five_days(start: datetime.date, count: int = 5) -> list[dict]:
+    """Three to seven calendar columns. Today follows Things' own Today list semantics."""
     today_date = datetime.date.today()
     columns = []
-    for offset in range(5):
+    for offset in range(count):
         day = start + datetime.timedelta(days=offset)
         if day == today_date:
             items = today()
