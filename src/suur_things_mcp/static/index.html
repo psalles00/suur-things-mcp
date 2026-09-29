@@ -39,6 +39,15 @@
   .iconbtn { border:1px solid var(--divider); background:var(--main-bg); color:var(--text); width:32px;
     height:32px; border-radius:8px; cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center; flex:0 0 32px; }
   .iconbtn:hover { background:var(--row-hover); }
+  .five-top-open { border:1px solid var(--divider); background:var(--main-bg); color:var(--text);
+    height:32px; padding:0 10px; border-radius:8px; cursor:pointer; font:700 12px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif; white-space:nowrap; }
+  .five-top-open:hover { background:var(--row-hover); }
+  .five-top-open[hidden] { display:none; }
+  .five-open-menu { position:fixed; z-index:60; min-width:190px; max-width:min(320px,calc(100vw - 24px)); max-height:60vh; overflow-y:auto;
+    padding:5px; border:1px solid var(--divider); border-radius:10px; background:var(--card-bg); box-shadow:0 12px 28px rgba(0,0,0,.16); }
+  .five-open-menu button { display:block; width:100%; padding:8px 10px; border:0; border-radius:7px; background:transparent;
+    color:var(--text); font:inherit; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; }
+  .five-open-menu button:hover, .five-open-menu button:focus-visible { background:var(--row-hover); }
   .ui-icon { width:15px; height:15px; flex:0 0 15px; display:inline-block; vertical-align:-2px; }
   .theme-menu { position:absolute; z-index:60; top:40px; right:15px; min-width:166px; padding:5px;
     border:1px solid var(--divider); border-radius:10px; background:var(--card-bg); box-shadow:0 12px 28px rgba(0,0,0,.16); }
@@ -509,10 +518,10 @@
     display:flex; align-items:center; border-bottom:1px solid #e6e7e9; background:#ebebee;
     color:#37373c; font:800 10px/1 "Avenir Next",sans-serif; letter-spacing:.08em; text-transform:uppercase; }
   .five-group span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .five-lines { flex:1 0 70px; min-height:70px; position:relative; cursor:text;
+  .five-lines { flex:1 0 70px; min-height:70px; position:relative; overflow:hidden; cursor:text;
     background:repeating-linear-gradient(to bottom,
     transparent 0,transparent 33px,#e9e9eb 33px,#e9e9eb 34px); }
-  .five-lines::after { content:"＋"; position:absolute; top:var(--five-hover-y,0px); left:0; right:0;
+  .five-lines::after { content:"＋"; position:absolute; box-sizing:border-box; top:var(--five-hover-y,0px); left:0; right:0;
     height:var(--five-row-height); padding:7px 8px; color:var(--five-accent);
     background:rgba(147,56,223,.07); opacity:0; pointer-events:none; }
   .five-lines:hover::after { opacity:1; }
@@ -566,6 +575,7 @@
     <span class="ck-ph">Search &amp; commands</span><span class="kbd">⌘K</span>
   </button>
   <span class="grow"></span>
+  <button type="button" class="five-top-open" id="five-open-btn" title="Abrir uma lista no Things" aria-haspopup="menu" aria-expanded="false" hidden>Things ↗</button>
   <button class="iconbtn" id="add-btn" title="Add to-do or project">＋</button>
   <button class="iconbtn" id="prefs-btn" title="Preferences">⚙</button>
   <button class="iconbtn" id="theme" title="Appearance" aria-label="Appearance" aria-haspopup="menu" aria-expanded="false"></button>
@@ -2315,6 +2325,7 @@ function setSidebarCollapsed(on){
 function leaveFiveDays(){
   if(!FIVE_ACTIVE) return;
   FIVE_ACTIVE=false; $(".main").classList.remove("five-mode");
+  closeFiveOpenMenu(); $("#five-open-btn").hidden=true;
   setSidebarCollapsed(FIVE_PRIOR_SIDEBAR);
 }
 function fivePrefs(){ return CONFIG.five_days||{project_ids:[],hide_scheduled:true,columns:5}; }
@@ -2335,6 +2346,29 @@ async function fiveOpenInThings(id){
     if(!r.ok) alert("Could not open Things: "+(r.error||"unknown error"));
   }catch(e){ alert("Could not open Things: "+(e?.message||e)); }
 }
+function closeFiveOpenMenu(){
+  $("#five-open-menu")?.remove(); $("#five-open-btn").setAttribute("aria-expanded","false");
+}
+function toggleFiveOpenMenu(){
+  if($("#five-open-menu")){ closeFiveOpenMenu(); return; }
+  const button=$("#five-open-btn"), menu=document.createElement("div");
+  menu.id="five-open-menu"; menu.className="five-open-menu"; menu.setAttribute("role","menu");
+  const ids=fivePrefs().project_ids||[];
+  if(!ids.length){ const empty=document.createElement("button"); empty.type="button";
+    empty.textContent="Escolha uma lista abaixo"; empty.onclick=()=>{ closeFiveOpenMenu(); fiveOpenPicker(); };
+    menu.appendChild(empty);
+  }
+  for(const id of ids){ const item=document.createElement("button"); item.type="button";
+    item.setAttribute("role","menuitem"); item.textContent=fiveProject(id)?.title||id;
+    item.onclick=()=>{ closeFiveOpenMenu(); fiveOpenInThings(id); }; menu.appendChild(item); }
+  document.body.appendChild(menu);
+  const bounds=button.getBoundingClientRect();
+  menu.style.top=bounds.bottom+6+"px";
+  menu.style.left=Math.max(12,Math.min(bounds.left,innerWidth-menu.offsetWidth-12))+"px";
+  button.setAttribute("aria-expanded","true");
+}
+document.addEventListener("pointerdown",e=>{ if(!e.target.closest("#five-open-btn,#five-open-menu")) closeFiveOpenMenu(); });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape" && $("#five-open-menu")) closeFiveOpenMenu(); });
 function fiveAllProjects(){ return [{uuid:"inbox",title:"Entrada (Inbox)"},
   ...(SIDEBAR?.areas||[]).flatMap(a=>a.projects),...(SIDEBAR?.arealess||[])]; }
 function fiveUpdateColumnWidth(){
@@ -2379,6 +2413,7 @@ async function renderFiveDays(){
   if(!FIVE_ACTIVE){ FIVE_ACTIVE=true; FIVE_PRIOR_SIDEBAR=$(".views").classList.contains("sidebar-collapsed");
     FIVE_START=fiveNowISO(); FIVE_DATA={days:[],lists:{}}; setSidebarCollapsed(true); }
   MODE="five"; CUR_BOARD=null; SEL=null; setActive("five-days");
+  $("#five-open-btn").hidden=false;
   $(".main").classList.remove("fill"); $(".main").classList.add("five-mode");
   if(!$("#content .five-shell")) fiveShell();
   fivePaint();
@@ -2871,6 +2906,7 @@ function wireStatic(){
     setSidebarCollapsed(collapsed);
     if(!FIVE_ACTIVE){ SIDEBAR_MANUAL=collapsed; localStorage.setItem("suur-sidebar-collapsed",collapsed?"1":"0"); } });
   on("#cmdk-btn",openCmdk);
+  on("#five-open-btn",toggleFiveOpenMenu);
   on("#add-btn",()=>openCreate("todo"));
   const addBtn=$("#add-btn"); addBtn.draggable=false;
   pointerListDrag(addBtn,"magic");
