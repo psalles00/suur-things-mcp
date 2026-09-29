@@ -521,7 +521,7 @@
   .five-shell .row .title { min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
   .five-shell .row .meta { max-width:38%; overflow:hidden; }
   .five-shell .row .pill { display:none; }
-  .five-shell .five-event-row { cursor:default; }
+  .five-shell .five-event-row { cursor:pointer; }
   .five-shell .five-event-row .five-event-icon { width:14px; height:14px; flex:0 0 14px;
     display:grid; place-items:center; color:var(--five-accent); }
   .five-shell .five-event-row .five-event-icon svg { width:14px; height:14px; }
@@ -2512,8 +2512,19 @@ function fiveAppendRows(col,items,key,source,headings=[]){
       container.appendChild(row); }
   }
 }
-function fiveEventRow(event){
+function fiveEventRow(event,date){
   const row=document.createElement("div"); row.className="row five-event-row";
+  row.tabIndex=0; row.setAttribute("role","button");
+  row.setAttribute("aria-label","Abrir "+(event.title||"evento")+" no Calendário");
+  const open=async()=>{
+    if(row.classList.contains("five-pending")) return;
+    row.classList.add("five-pending");
+    const r=await postJSON("/api/open-calendar-event",{date,...event});
+    row.classList.remove("five-pending");
+    if(!r.ok) alert("Não foi possível abrir o evento: "+(r.error||"erro desconhecido"));
+  };
+  row.onclick=open;
+  row.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); open(); } };
   const icon=document.createElement("span"); icon.className="five-event-icon";
   icon.innerHTML=SVG.calendar; icon.setAttribute("aria-label","Evento de calendário");
   const title=document.createElement("span"); title.className="title";
@@ -2587,7 +2598,7 @@ function fivePaint(){
     actions.append(open,add); head.append(copy,actions);
     const body=document.createElement("div"); body.className="five-col-body";
     const events=FIVE_DATA.events.find(day=>day.date===iso)?.events||[];
-    for(const event of events) body.appendChild(fiveEventRow(event));
+    for(const event of events) body.appendChild(fiveEventRow(event,iso));
     const items=FIVE_DATA.days.find(day=>day.date===iso)?.items||[];
     fiveAppendRows(body,items,"project_title",{kind:"date",date:iso});
     if(FIVE_DATA.eventError && i===0){ const e=document.createElement("div"); e.className="five-error";

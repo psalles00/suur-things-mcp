@@ -51,7 +51,7 @@ from starlette.requests import Request
 from starlette.responses import FileResponse, HTMLResponse, JSONResponse
 from starlette.routing import Route
 
-from . import __version__, calendar_events, native_order, reads
+from . import __version__, calendar_events, calendar_open, native_order, reads
 from . import config as boardcfg
 from . import organize as organizer
 from .urlscheme import ThingsURLError, build_url, execute
@@ -277,6 +277,32 @@ async def _calendar_events(request: Request) -> JSONResponse:
         return JSONResponse({"ok": True, "days": days})
     except calendar_events.CalendarEventsError as exc:
         return JSONResponse({"ok": False, "error": str(exc), "days": []})
+
+
+async def _open_calendar_event(request: Request) -> JSONResponse:
+    body = await _json_body(request)
+    if body is None:
+        return JSONResponse({"ok": False, "error": "invalid JSON body"}, status_code=400)
+    try:
+        day = datetime.date.fromisoformat(body["date"])
+        if not 1970 <= day.year <= 2099:
+            raise ValueError("invalid date")
+        expected = {key: body[key] for key in ("title", "calendar", "start_time", "end_time", "all_day")}
+        if (not all(isinstance(expected[key], str) for key in ("title", "calendar", "start_time", "end_time"))
+                or not isinstance(expected["all_day"], bool)):
+            raise ValueError("invalid event")
+    except (KeyError, TypeError, ValueError):
+        return JSONResponse({"ok": False, "error": "invalid event"}, status_code=400)
+    try:
+        days = await run_in_threadpool(calendar_events.read_days, day, 3)
+        events = next((entry["events"] for entry in days if entry["date"] == day.isoformat()), [])
+        matches = [event for event in events if all(event.get(key) == value for key, value in expected.items())]
+        if len(matches) != 1:
+            return JSONResponse({"ok": False, "error": "Evento não encontrado ou ambíguo."}, status_code=404)
+        await run_in_threadpool(calendar_open.reveal, matches[0], day.isoformat())
+        return JSONResponse({"ok": True})
+    except (calendar_events.CalendarEventsError, calendar_open.CalendarOpenError) as exc:
+        return JSONResponse({"ok": False, "error": str(exc)})
 
 
 async def _item(request: Request) -> JSONResponse:
@@ -889,6 +915,7 @@ def create_app(port: int = DEFAULT_PORT) -> Starlette:
             Route("/api/items", _items),
             Route("/api/five-days", _five_days),
             Route("/api/calendar-events", _calendar_events),
+            Route("/api/open-calendar-event", _open_calendar_event, methods=["POST"]),
             Route("/api/item", _item),
             Route("/api/search", _search),
             Route("/api/pulse", _pulse),
