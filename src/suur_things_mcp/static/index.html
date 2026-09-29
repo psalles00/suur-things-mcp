@@ -569,6 +569,11 @@
   .five-shell .row.five-drop-before { box-shadow:inset 0 3px var(--five-accent); }
   .five-shell .row.five-drop-after { box-shadow:inset 0 -3px var(--five-accent); }
   .five-shell .row.five-pending { opacity:.55; }
+  .five-calendar-status { position:fixed; z-index:1001; right:24px; bottom:24px;
+    max-width:min(420px,calc(100vw - 48px)); padding:10px 14px; border-radius:8px;
+    background:#292930; color:white; font-size:13px; line-height:1.4;
+    box-shadow:0 8px 24px rgba(0,0,0,.18); }
+  .five-calendar-status.is-error { background:#a12f2a; }
   .five-error { color:#ba342e; font-size:12px; padding:12px 0; }
   .five-picker { width:min(550px,92vw); max-height:75vh; display:flex; flex-direction:column; }
   .five-picker-list { overflow-y:auto; flex:1; min-height:0; }
@@ -2358,6 +2363,7 @@ function setSidebarCollapsed(on){
 function leaveFiveDays(){
   if(!FIVE_ACTIVE) return;
   FIVE_ACTIVE=false; $(".main").classList.remove("five-mode");
+  clearTimeout(FIVE_CALENDAR_STATUS_TIMER); document.querySelector(".five-calendar-status")?.remove();
   closeFiveOpenMenu(); $("#five-open-btn").hidden=true;
   setSidebarCollapsed(FIVE_PRIOR_SIDEBAR);
 }
@@ -2512,6 +2518,15 @@ function fiveAppendRows(col,items,key,source,headings=[]){
       container.appendChild(row); }
   }
 }
+let FIVE_CALENDAR_STATUS_TIMER=0;
+function fiveCalendarStatus(message,isError=false){
+  let status=document.querySelector(".five-calendar-status");
+  if(!status){ status=document.createElement("div"); status.className="five-calendar-status";
+    status.setAttribute("role","status"); document.body.appendChild(status); }
+  clearTimeout(FIVE_CALENDAR_STATUS_TIMER);
+  status.textContent=message; status.classList.toggle("is-error",isError);
+  if(!isError) FIVE_CALENDAR_STATUS_TIMER=setTimeout(()=>status.remove(),3000);
+}
 function fiveEventRow(event,date){
   const row=document.createElement("div"); row.className="row five-event-row";
   row.tabIndex=0; row.setAttribute("role","button");
@@ -2519,9 +2534,13 @@ function fiveEventRow(event,date){
   const open=async()=>{
     if(row.classList.contains("five-pending")) return;
     row.classList.add("five-pending");
+    row.setAttribute("aria-busy","true");
+    fiveCalendarStatus("Abrindo no Calendário…");
     const r=await postJSON("/api/open-calendar-event",{date,...event});
     row.classList.remove("five-pending");
-    if(!r.ok) alert("Não foi possível abrir o evento: "+(r.error||"erro desconhecido"));
+    row.removeAttribute("aria-busy");
+    fiveCalendarStatus(r.ok?"Evento aberto no Calendário.":
+      "Não foi possível abrir o evento: "+(r.error||"erro desconhecido"),!r.ok);
   };
   row.onclick=open;
   row.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); open(); } };
