@@ -41,6 +41,16 @@ function run(argv) {
 }
 '''
 
+_OPEN_INFO_SCRIPT = r'''
+tell application "System Events"
+    if not (exists process "Calendar") then error "Calendar is not running"
+    if not (frontmost of process "Calendar") then error "Calendar is not frontmost"
+    delay 0.25
+    if not (frontmost of process "Calendar") then error "Calendar lost focus"
+    keystroke "i" using command down
+end tell
+'''
+
 
 def reveal(event: dict, date: str) -> None:
     try:
@@ -55,3 +65,13 @@ def reveal(event: dict, date: str) -> None:
     if result.returncode:
         detail = result.stderr.strip().splitlines()
         raise CalendarOpenError(detail[-1] if detail else "O evento não foi encontrado no Calendário.")
+    try:
+        info = subprocess.run(
+            ["/usr/bin/osascript", "-e", _OPEN_INFO_SCRIPT],
+            capture_output=True, text=True, timeout=8, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise CalendarOpenError("O Calendário selecionou o evento, mas não abriu os detalhes.") from exc
+    if info.returncode:
+        detail = info.stderr.strip().splitlines()
+        raise CalendarOpenError(detail[-1] if detail else "O Calendário não abriu os detalhes do evento.")
