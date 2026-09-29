@@ -11,4 +11,6 @@
 <key>CFBundleVersion</key><string>1</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>LSUIElement</key><true/>
+<key>NSCalendarsFullAccessUsageDescription</key><string>Mostrar no SUUR os eventos do Apple Calendar exibidos pelo Things.</string>
+<key>NSCalendarsUsageDescription</key><string>Mostrar no SUUR os eventos do Apple Calendar exibidos pelo Things.</string>
 </dict></plist>

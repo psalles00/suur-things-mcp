@@ -521,6 +521,11 @@
   .five-shell .row .title { min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
   .five-shell .row .meta { max-width:38%; overflow:hidden; }
   .five-shell .row .pill { display:none; }
+  .five-shell .five-event-row { cursor:default; }
+  .five-shell .five-event-row .five-event-icon { width:14px; height:14px; flex:0 0 14px;
+    display:grid; place-items:center; color:var(--five-accent); }
+  .five-shell .five-event-row .five-event-icon svg { width:14px; height:14px; }
+  .five-shell .five-event-row .title { flex:1; }
   .five-shell .row.is-done .title { text-decoration:line-through; }
   .five-group { height:var(--five-row-height); min-height:var(--five-row-height); margin:0; padding:0 8px;
     display:flex; align-items:center; border-bottom:1px solid #e6e7e9; background:#ebebee;
@@ -2342,7 +2347,7 @@ async function commitHeadRename(){
 })();
 
 // --- Teux Deux: configurable Things dates above user-selected lists ---
-let FIVE_ACTIVE=false, FIVE_START=null, FIVE_TODAY=null, FIVE_DATA={days:[],lists:{}}, FIVE_PRIOR_SIDEBAR=false;
+let FIVE_ACTIVE=false, FIVE_START=null, FIVE_TODAY=null, FIVE_DATA={days:[],events:[],lists:{}}, FIVE_PRIOR_SIDEBAR=false;
 let SIDEBAR_MANUAL=localStorage.getItem("suur-sidebar-collapsed")==="1";
 function setSidebarCollapsed(on){
   $(".views").classList.toggle("sidebar-collapsed",on);
@@ -2441,16 +2446,26 @@ function fiveShell(){
 async function renderFiveDays(){
   const request=++CONTENT_REQUEST;
   if(!FIVE_ACTIVE){ FIVE_ACTIVE=true; FIVE_PRIOR_SIDEBAR=$(".views").classList.contains("sidebar-collapsed");
-    FIVE_START=fiveNowISO(); FIVE_DATA={days:[],lists:{}}; setSidebarCollapsed(true); }
+    FIVE_START=fiveNowISO(); FIVE_DATA={days:[],events:[],lists:{}}; setSidebarCollapsed(true); }
   MODE="five"; CUR_BOARD=null; SEL=null; setActive("five-days");
   $("#five-open-btn").hidden=false;
   $(".main").classList.remove("fill"); $(".main").classList.add("five-mode");
   if(!$("#content .five-shell")) fiveShell();
   fivePaint();
+  const calendarRequest=getJSON("/api/calendar-events?start="+encodeURIComponent(FIVE_START)+"&count="+fiveColumnCount());
   const days=await getJSON("/api/five-days?start="+encodeURIComponent(FIVE_START)+"&count="+fiveColumnCount());
   if(request!==CONTENT_REQUEST || !FIVE_ACTIVE) return;
   FIVE_DATA.days=days.ok?days.days:[]; FIVE_DATA.dayError=days.ok?"":days.error||"Could not read dates";
   FIVE_TODAY=days.today||fiveNowISO(); fivePaint();
+  calendarRequest.then(events=>{
+    if(request!==CONTENT_REQUEST || !FIVE_ACTIVE) return;
+    FIVE_DATA.events=events.ok?events.days:[];
+    FIVE_DATA.eventError=events.ok?"":events.error||"Não foi possível ler o Calendário";
+    fivePaint();
+  }).catch(()=>{
+    if(request===CONTENT_REQUEST && FIVE_ACTIVE){
+      FIVE_DATA.events=[]; FIVE_DATA.eventError="Não foi possível ler o Calendário"; fivePaint(); }
+  });
   const ids=fiveReadListIds(); let next=0;
   const loadNext=async()=>{
     while(next<ids.length && request===CONTENT_REQUEST && FIVE_ACTIVE){
@@ -2495,6 +2510,17 @@ function fiveAppendRows(col,items,key,source,headings=[]){
       if(it.status==="incomplete") fiveAttachDrag(row,it,source);
       container.appendChild(row); }
   }
+}
+function fiveEventRow(event){
+  const row=document.createElement("div"); row.className="row five-event-row";
+  const icon=document.createElement("span"); icon.className="five-event-icon";
+  icon.innerHTML=SVG.calendar; icon.setAttribute("aria-label","Evento de calendário");
+  const title=document.createElement("span"); title.className="title";
+  const time=event.all_day||!event.start_time?"":event.start_time+" ";
+  title.textContent=time+(event.title||"(sem título)");
+  title.title=[event.title,event.calendar,event.all_day?"Dia inteiro":
+    [event.start_time,event.end_time].filter(Boolean).join("–")].filter(Boolean).join(" · ");
+  row.append(icon,title); return row;
 }
 function fiveAppendInboxSection(body,prefs){
   const section=document.createElement("div"); section.className="five-embedded-inbox";
@@ -2559,8 +2585,12 @@ function fivePaint(){
     add.onclick=()=>{ openCreate("todo",null,"inbox"); $("#f-when").value=iso; buildWhenChips(); updatePills(); };
     actions.append(open,add); head.append(copy,actions);
     const body=document.createElement("div"); body.className="five-col-body";
+    const events=FIVE_DATA.events.find(day=>day.date===iso)?.events||[];
+    for(const event of events) body.appendChild(fiveEventRow(event));
     const items=FIVE_DATA.days.find(day=>day.date===iso)?.items||[];
     fiveAppendRows(body,items,"project_title",{kind:"date",date:iso});
+    if(FIVE_DATA.eventError && i===0){ const e=document.createElement("div"); e.className="five-error";
+      e.textContent=FIVE_DATA.eventError; body.appendChild(e); }
     if(FIVE_DATA.dayError && i===0){ const e=document.createElement("div"); e.className="five-error"; e.textContent=FIVE_DATA.dayError; body.appendChild(e); }
     const lines=document.createElement("div"); lines.className="five-lines"; fiveActivateBlankLines(lines); body.appendChild(lines);
     col.append(head,body); dg.appendChild(col);

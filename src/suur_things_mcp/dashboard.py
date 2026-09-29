@@ -51,9 +51,8 @@ from starlette.requests import Request
 from starlette.responses import FileResponse, HTMLResponse, JSONResponse
 from starlette.routing import Route
 
-from . import __version__, reads
+from . import __version__, calendar_events, native_order, reads
 from . import config as boardcfg
-from . import native_order
 from . import organize as organizer
 from .urlscheme import ThingsURLError, build_url, execute
 
@@ -262,6 +261,22 @@ async def _five_days(request: Request) -> JSONResponse:
         return JSONResponse({"ok": True, "days": days, "today": datetime.date.today().isoformat()})
     except Exception as exc:  # noqa: BLE001
         return JSONResponse({"ok": False, "error": str(exc)})
+
+
+async def _calendar_events(request: Request) -> JSONResponse:
+    raw = request.query_params.get("start") or datetime.date.today().isoformat()
+    try:
+        start = datetime.date.fromisoformat(raw)
+        count = int(request.query_params.get("count", "5"))
+        if not 1970 <= start.year <= 2099 or not 3 <= count <= 7:
+            raise ValueError("invalid range")
+    except ValueError:
+        return JSONResponse({"ok": False, "error": "invalid start date or column count"}, status_code=400)
+    try:
+        days = await run_in_threadpool(calendar_events.read_days, start, count)
+        return JSONResponse({"ok": True, "days": days})
+    except calendar_events.CalendarEventsError as exc:
+        return JSONResponse({"ok": False, "error": str(exc), "days": []})
 
 
 async def _item(request: Request) -> JSONResponse:
@@ -873,6 +888,7 @@ def create_app(port: int = DEFAULT_PORT) -> Starlette:
             Route("/api/sidebar", _sidebar),
             Route("/api/items", _items),
             Route("/api/five-days", _five_days),
+            Route("/api/calendar-events", _calendar_events),
             Route("/api/item", _item),
             Route("/api/search", _search),
             Route("/api/pulse", _pulse),
