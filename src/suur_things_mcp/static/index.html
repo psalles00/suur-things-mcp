@@ -112,6 +112,11 @@
   .main-head { display:flex; align-items:center; gap:11px; padding:26px 40px 0; margin-bottom:18px; flex:none; }
   .main-head .ico { font-size:24px; display:flex; align-items:center; } .main-head h1 { font-size:25px; font-weight:700; letter-spacing:-.01em; margin:0; }
   .main-head .grow { flex:1; }
+  .head-open-things { flex:0 0 auto; border:1px solid var(--divider); border-radius:7px;
+    background:var(--main-bg); color:var(--text); padding:7px 11px; cursor:pointer;
+    font:700 12px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif; white-space:nowrap; }
+  .head-open-things:hover, .head-open-things:focus-visible { color:var(--text); background:var(--row-hover); }
+  .head-open-things[hidden] { display:none; }
   #content { flex:1; min-height:0; overflow-y:auto; padding:0 40px 80px; }
   .main.fill #content { overflow:hidden; padding:0 18px 18px; }
   .board-wrap { display:flex; gap:14px; align-items:flex-start; height:100%; overflow-x:auto; }
@@ -591,6 +596,7 @@
   <main class="main">
     <div class="main-head">
       <span class="ico" id="head-ico">⭐</span><h1 id="head-title">Today</h1>
+      <button type="button" class="head-open-things" id="head-open-things" title="Abrir esta lista no Things" hidden>Things ↗</button>
       <span class="grow"></span>
       <div class="viewtog rollup-tog" id="rollup-pill" style="display:none" title="Fold this area's project tasks into the view">
         <button class="vt" id="rollup-vt">Project tasks</button>
@@ -908,6 +914,7 @@ function go(h){ if(location.hash===h) route(); else location.hash=h; }
 function route(){
   const h=location.hash;
   if(h!=="#five-days") leaveFiveDays();
+  $("#head-open-things").hidden=true;
   $("#levels-gear").style.display="none";   // only the Priority Levels view shows it
   $("#rollup-pill").style.display="none";    // only area list views show it (renderList re-shows)
   if(h==="#five-days") return renderFiveDays();
@@ -1209,6 +1216,10 @@ async function renderList(sel, view="list"){
   $("#board-gear").style.display="none"; $("#levels-gear").style.display=levels?"flex":"none"; setActive(sel.id);
   $("#rollup-pill").style.display=(sel.kind==="area")?"inline-flex":"none";  // areas only, every view
   setHeadIcon(sel); $("#head-title").textContent=sel.title;
+  const openButton=$("#head-open-things");
+  openButton.hidden=sel.id==="trash";
+  openButton.title="Abrir "+sel.title+" no Things";
+  openButton.setAttribute("aria-label",openButton.title);
   setHeadEditable(sel.kind==="project"?"project":null, sel.id);
   $("#viewtog").classList.add("show");
   $("#vt-list").classList.toggle("on",view==="list"); $("#vt-matrix").classList.toggle("on",matrix); $("#vt-levels").classList.toggle("on",levels); $("#vt-cards").classList.toggle("on",cards); $("#vt-timeline").classList.toggle("on",timeline);
@@ -2907,6 +2918,7 @@ function wireStatic(){
     if(!FIVE_ACTIVE){ SIDEBAR_MANUAL=collapsed; localStorage.setItem("suur-sidebar-collapsed",collapsed?"1":"0"); } });
   on("#cmdk-btn",openCmdk);
   on("#five-open-btn",toggleFiveOpenMenu);
+  on("#head-open-things",()=>{ if(SEL && SEL.id!=="trash") fiveOpenInThings(SEL.id); });
   on("#add-btn",()=>openCreate("todo"));
   const addBtn=$("#add-btn"); addBtn.draggable=false;
   pointerListDrag(addBtn,"magic");

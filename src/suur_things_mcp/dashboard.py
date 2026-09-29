@@ -666,19 +666,20 @@ async def _open(request: Request) -> JSONResponse:
 
 
 async def _open_things_list(request: Request) -> JSONResponse:
-    """Ask macOS to show a known project or Inbox in Things."""
+    """Ask macOS to show a Things list, project, or area."""
     body = await _json_body(request)
     if body is None:
         return JSONResponse({"ok": False, "error": "invalid JSON body"}, status_code=400)
     list_id = body.get("list_id")
     if not isinstance(list_id, str):
         return JSONResponse({"ok": False, "error": "invalid list"}, status_code=400)
-    if list_id != "inbox":
+    supported_builtins = {"inbox", "today", "upcoming", "anytime", "someday", "logbook"}
+    if list_id not in supported_builtins:
         if not re.fullmatch(r"[A-Za-z0-9]{20,30}", list_id):
-            return JSONResponse({"ok": False, "error": "invalid project ID"}, status_code=400)
+            return JSONResponse({"ok": False, "error": "invalid list ID"}, status_code=400)
         item = await run_in_threadpool(lambda: reads.get(list_id))
-        if not item or item.get("type") != "project":
-            return JSONResponse({"ok": False, "error": "project not found"}, status_code=404)
+        if not item or item.get("type") not in {"project", "area"}:
+            return JSONResponse({"ok": False, "error": "list not found"}, status_code=404)
     url = build_url("show", {"id": list_id})
     try:
         result = await run_in_threadpool(lambda: subprocess.run(

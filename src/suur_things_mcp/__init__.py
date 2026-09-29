@@ -1,3 +1,3 @@
 """SUUR Things MCP — an MCP server for Things 3 on macOS."""
 
-__version__ = "0.9.0+pedro.28"
+__version__ = "0.9.0+pedro.29"
