@@ -492,6 +492,12 @@
   .five-listhead { flex:0 0 66px; min-width:0; position:relative; z-index:2; background:#f7f8fa; }
   .five-listhead { display:flex; align-items:flex-start; gap:4px; }
   .five-listhead .five-listname { flex:1; min-width:0; }
+  .five-column-actions { display:flex; align-items:center; gap:2px; flex:0 0 auto;
+    opacity:0; pointer-events:none; }
+  .five-datecol:hover .five-column-actions, .five-datecol:focus-within .five-column-actions,
+  .five-listcol:hover .five-column-actions, .five-listcol:focus-within .five-column-actions {
+    opacity:1; pointer-events:auto; }
+  @media (hover:none) { .five-column-actions { opacity:1; pointer-events:auto; } }
   .five-list-action { border:0; background:transparent; color:var(--muted); width:25px; height:28px; padding:3px; cursor:pointer; border-radius:5px; flex:0 0 auto; display:grid; place-items:center; }
   .five-list-action:hover, .five-list-action:focus-visible { color:var(--text); background:#e5e6e9; }
   html[data-theme="dark"] .five-list-action:hover, html[data-theme="dark"] .five-list-action:focus-visible { background:#343a42; }
@@ -2541,12 +2547,17 @@ function fivePaint(){
     const head=document.createElement("div"); head.className="five-datehead";
     const copy=document.createElement("div"); copy.className="five-datecopy";
     copy.innerHTML=`<div class="five-date">${esc(label)}</div><h2 class="five-dayname">${esc(name)}</h2>`;
+    const actions=document.createElement("div"); actions.className="five-column-actions";
     const dateDestination=iso===today?"today":"upcoming";
     const open=document.createElement("button"); open.type="button"; open.className="five-list-action open-things";
     open.title="Abrir "+(dateDestination==="today"?"Today":"Upcoming")+" no Things";
     open.setAttribute("aria-label",open.title); open.textContent="↗";
     open.onclick=()=>fiveOpenInThings(dateDestination);
-    head.append(copy,open);
+    const add=document.createElement("button"); add.type="button"; add.className="five-list-action";
+    add.title="Adicionar em "+label; add.setAttribute("aria-label",add.title);
+    add.innerHTML='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 2.5v11M2.5 8h11"/></svg>';
+    add.onclick=()=>{ openCreate("todo",null,"inbox"); $("#f-when").value=iso; buildWhenChips(); updatePills(); };
+    actions.append(open,add); head.append(copy,actions);
     const body=document.createElement("div"); body.className="five-col-body";
     const items=FIVE_DATA.days.find(day=>day.date===iso)?.items||[];
     fiveAppendRows(body,items,"project_title",{kind:"date",date:iso});
@@ -2571,6 +2582,7 @@ function fivePaint(){
       const head=document.createElement("div"); head.className="five-listhead";
       const title=document.createElement("h2"); title.className="five-listname"; title.textContent=p?.title||"Project unavailable";
       title.title=title.textContent; head.appendChild(title);
+      const actions=document.createElement("div"); actions.className="five-column-actions";
       const add=document.createElement("button"); add.type="button"; add.className="five-list-action";
       add.title="Add to "+title.textContent; add.setAttribute("aria-label",add.title);
       add.innerHTML='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 2.5v11M2.5 8h11"/></svg>';
@@ -2579,7 +2591,7 @@ function fivePaint(){
       open.title="Abrir "+title.textContent+" no Things"; open.setAttribute("aria-label",open.title);
       open.textContent="↗";
       open.onclick=()=>fiveOpenInThings(id);
-      head.append(open,add); col.appendChild(head);
+      actions.append(open,add); head.appendChild(actions); col.appendChild(head);
       const body=document.createElement("div"); body.className="five-col-body";
       if(data && !data.ok){ const e=document.createElement("div"); e.className="five-error"; e.textContent=data.error||"Could not read project"; body.appendChild(e); }
       else if(data){ const items=(data.items||[]).filter(it=>!prefs.hide_scheduled || !it.start_date);
