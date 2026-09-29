@@ -280,6 +280,9 @@
   .ec-editor > .ed-body { min-height:0; overflow:hidden; }
   .ec-editor.show { grid-template-rows:1fr; opacity:1; margin:8px 0 2px; padding:9px 0 2px; border-top-color:var(--divider); }
   .ec-editor .qchips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+  .when-remove { display:none; margin:0 0 8px; padding:0; border:0; background:none;
+    color:var(--muted); font:inherit; font-size:12px; cursor:pointer; }
+  .when-remove:hover, .when-remove.active { color:var(--accent); }
   .ec-editor input { width:100%; font:inherit; color:var(--text); background:var(--side-bg);
     border:1px solid var(--divider); border-radius:8px; padding:7px 9px; }
   .ec-foot { display:flex; align-items:center; gap:2px; margin-top:11px; padding-top:10px; border-top:1px solid var(--divider); }
@@ -603,6 +606,7 @@
     <input type="file" id="att-input" accept="image/png,image/jpeg,image/gif,image/webp,image/heic,image/heif" multiple style="display:none">
     <div class="ec-editor" id="ed-when"><div class="ed-body">
       <div class="qchips" id="when-chips"></div>
+      <button type="button" class="when-remove" id="when-remove">Remover agendamento</button>
       <input id="f-when" placeholder="today · evening · tomorrow · anytime · someday · yyyy-mm-dd">
     </div></div>
     <div class="ec-editor" id="ed-deadline"><div class="ed-body">
@@ -1796,7 +1800,7 @@ async function deleteBoard(){
 }
 
 // --- edit dialog (Things-style card; saves on close only if changed) ---
-let EDIT_ORIG=null, WHEN_SEED=null, EDIT_NEW=false, EDIT_KIND="todo", PENDING_ATTACH=[], EDIT_PLACEMENT=null;
+let EDIT_ORIG=null, WHEN_SEED=null, WHEN_CLEAR=false, EDIT_NEW=false, EDIT_KIND="todo", PENDING_ATTACH=[], EDIT_PLACEMENT=null;
 const WHEN_OPTS=[["today","Today"],["evening","This Evening"],["tomorrow","Tomorrow"],["anytime","Anytime"],["someday","Someday"]];
 // Floor the height so a textarea can never collapse to 0 — which made the create
 // card's title field invisible (the checkbox is hidden there, so the flex row had
@@ -1812,15 +1816,21 @@ function scheduleLabel(ci){
   return null;
 }
 function currentWhenLabel(){
+  if(WHEN_CLEAR) return "Anytime";
   const w=$("#f-when").value.trim();
   if(w){ const o=WHEN_OPTS.find(x=>x[0]===w); return o?o[1]:w; }
   return WHEN_SEED;
 }
 function buildWhenChips(){
-  const w=$("#when-chips"); w.innerHTML=""; const cur=$("#f-when").value.trim();
+  const w=$("#when-chips"); w.innerHTML=""; const cur=WHEN_CLEAR?"anytime":$("#f-when").value.trim();
+  $("#when-remove").classList.toggle("active",WHEN_CLEAR);
   WHEN_OPTS.forEach(([val,lbl])=>{
     const c=document.createElement("div"); c.className="chip"+(cur===val?" active":"");
-    c.textContent=lbl; c.onclick=()=>{ $("#f-when").value=(cur===val?"":val); buildWhenChips(); updatePills(); };
+    c.textContent=lbl; c.onclick=()=>{
+      if(val==="anytime" && !EDIT_NEW){ WHEN_CLEAR=cur!==val; $("#f-when").value=""; }
+      else { WHEN_CLEAR=false; $("#f-when").value=(cur===val?"":val); }
+      buildWhenChips(); updatePills();
+    };
     w.appendChild(c);
   });
 }
@@ -1862,7 +1872,8 @@ function toggleEditor(id, tool){
 }
 // --- create mode: the edit card, reused for a brand-new to-do/project ---
 function openCreate(kind, placement=null){
-  EDIT_NEW=true; EDIT_ID=null; EDIT_KIND=kind||"todo"; clearPending();
+  EDIT_NEW=true; EDIT_ID=null; EDIT_KIND=kind||"todo"; WHEN_CLEAR=false; clearPending();
+  $("#when-remove").style.display="none";
   ["f-title","f-notes","f-when","f-deadline","f-tags"].forEach(id=>{ $("#"+id).value=""; $("#"+id).disabled=false; });
   $("#f-checklist").innerHTML="";
   $("#ec-box").style.display="none";                     // nothing to complete yet
@@ -1941,7 +1952,7 @@ async function createFromCard(){
   if(placementNotice) alert(placementNotice);
 }
 async function openEdit(uuid){
-  EDIT_ID=uuid; EDIT_NEW=false; clearPending();
+  EDIT_ID=uuid; EDIT_NEW=false; WHEN_CLEAR=false; clearPending();
   $("#ec-kind").style.display="none"; $("#ec-box").style.display=""; $("#ec-box").classList.remove("done");
   $("#ec-add").style.display="none"; $("#ec-where").style.display="none";
   document.querySelectorAll("#edit-overlay .ec-link").forEach(b=>b.style.display="");
@@ -1954,7 +1965,8 @@ async function openEdit(uuid){
     ? `<div class="ec-checks">`+it.checklist.map(c=>`<div class="ci ${c.status==="completed"?"done":""}">${c.status==="completed"?"☑":"☐"} ${esc(c.title)}</div>`).join("")+`</div>` : "";
   ["ed-when","ed-deadline","ed-tags"].forEach(id=>$("#"+id).classList.remove("show"));
   ["tool-when","tool-deadline","tool-tags"].forEach(id=>$("#"+id).classList.remove("on"));
-  const ci=cachedItem(uuid); WHEN_SEED=ci?scheduleLabel(ci):null;
+  WHEN_SEED=scheduleLabel(it);
+  $("#when-remove").style.display=AUTH && (it.start_date || (it.start && !["Anytime","Inbox"].includes(it.start)))?"inline-block":"none";
   buildWhenChips();
   const ro=!AUTH; $("#edit-warn").style.display=ro?"block":"none";
   ["f-title","f-notes","f-when","f-deadline","f-tags"].forEach(id=>$("#"+id).disabled=ro);
@@ -2009,7 +2021,7 @@ function editDirty(){
   if(!EDIT_ORIG) return false;
   const tags=$("#f-tags").value.split(",").map(s=>s.trim()).filter(Boolean).join(",");
   return $("#f-title").value!==EDIT_ORIG.title || $("#f-notes").value!==EDIT_ORIG.notes
-    || tags!==EDIT_ORIG.tags || $("#f-when").value.trim()!=="" || $("#f-deadline").value.trim()!==EDIT_ORIG.deadline;
+    || tags!==EDIT_ORIG.tags || WHEN_CLEAR || $("#f-when").value.trim()!=="" || $("#f-deadline").value.trim()!==EDIT_ORIG.deadline;
 }
 async function closeEdit(){
   if(EDIT_NEW){ clearPending(); closeOverlay("edit-overlay"); return; }  // ✕/Esc discards a new card (use Add to create)
@@ -2019,7 +2031,7 @@ async function closeEdit(){
 async function saveEdit(){
   const tags=$("#f-tags").value.split(",").map(s=>s.trim()).filter(Boolean);
   const body={id:EDIT_ID,title:$("#f-title").value,notes:$("#f-notes").value,tags};
-  const when=$("#f-when").value.trim(); if(when) body.when=when;
+  const when=$("#f-when").value.trim(); if(WHEN_CLEAR) body.when=""; else if(when) body.when=when;
   body.deadline=$("#f-deadline").value.trim(); await postUpdate(body);
 }
 // Completing/canceling keeps the item VISIBLE as done (check + strikethrough) until a
@@ -2340,7 +2352,7 @@ function fivePaint(){
     const iso=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
     const col=document.createElement("section"); col.className="five-datecol"+(iso===today?" is-today":""); col.dataset.fiveDate=iso;
     const label=d.toLocaleDateString("en-US",{day:"2-digit",month:"short",year:"numeric"}).toUpperCase();
-    const name=d.toLocaleDateString("en-US",{weekday:"long"}).toUpperCase();
+    const name=["DOMINGO","SEGUNDA","TERÇA","QUARTA","QUINTA","SEXTA","SÁBADO"][d.getDay()];
     const head=document.createElement("div"); head.className="five-datehead";
     head.innerHTML=`<div class="five-date">${esc(label)}</div><h2 class="five-dayname">${esc(name)}</h2>`;
     const body=document.createElement("div"); body.className="five-col-body"; body.dataset.fiveScroll="date:"+iso;
@@ -2704,7 +2716,11 @@ function wireStatic(){
   $("#f-title").oninput=e=>{ autoGrow(e.target); if(EDIT_NEW) updatePills(); };
   $("#f-notes").oninput=e=>autoGrow(e.target);
   $("#att-input").onchange=onAttachPick;
-  $("#f-when").oninput=()=>{ buildWhenChips(); updatePills(); };
+  $("#f-when").oninput=()=>{ WHEN_CLEAR=false; buildWhenChips(); updatePills(); };
+  on("#when-remove",()=>{
+    if(!AUTH || EDIT_NEW) return;
+    WHEN_CLEAR=true; $("#f-when").value=""; buildWhenChips(); updatePills();
+  });
   $("#f-deadline").onchange=updatePills;
   $("#f-tags").oninput=updatePills;
   on("#tool-when",function(){ toggleEditor("ed-when",this); });
