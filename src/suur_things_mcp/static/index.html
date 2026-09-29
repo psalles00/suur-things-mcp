@@ -580,7 +580,7 @@
     <span class="ck-ph">Search &amp; commands</span><span class="kbd">⌘K</span>
   </button>
   <span class="grow"></span>
-  <button type="button" class="five-top-open" id="five-open-btn" title="Abrir uma lista no Things" aria-haspopup="menu" aria-expanded="false" hidden>Things ↗</button>
+  <button type="button" class="five-top-open" id="five-open-btn" title="Abrir uma lista no Things (Ctrl+T)" aria-haspopup="menu" aria-expanded="false" hidden>Things ↗</button>
   <button class="iconbtn" id="add-btn" title="Add to-do or project">＋</button>
   <button class="iconbtn" id="prefs-btn" title="Preferences">⚙</button>
   <button class="iconbtn" id="theme" title="Appearance" aria-label="Appearance" aria-haspopup="menu" aria-expanded="false"></button>
@@ -596,7 +596,7 @@
   <main class="main">
     <div class="main-head">
       <span class="ico" id="head-ico">⭐</span><h1 id="head-title">Today</h1>
-      <button type="button" class="head-open-things" id="head-open-things" title="Abrir esta lista no Things" hidden>Things ↗</button>
+      <button type="button" class="head-open-things" id="head-open-things" title="Abrir esta lista no Things (Ctrl+T)" hidden>Things ↗</button>
       <span class="grow"></span>
       <div class="viewtog rollup-tog" id="rollup-pill" style="display:none" title="Fold this area's project tasks into the view">
         <button class="vt" id="rollup-vt">Project tasks</button>
@@ -1218,8 +1218,8 @@ async function renderList(sel, view="list"){
   setHeadIcon(sel); $("#head-title").textContent=sel.title;
   const openButton=$("#head-open-things");
   openButton.hidden=sel.id==="trash";
-  openButton.title="Abrir "+sel.title+" no Things";
-  openButton.setAttribute("aria-label",openButton.title);
+  openButton.title="Abrir "+sel.title+" no Things (Ctrl+T)";
+  openButton.setAttribute("aria-label","Abrir "+sel.title+" no Things");
   setHeadEditable(sel.kind==="project"?"project":null, sel.id);
   $("#viewtog").classList.add("show");
   $("#vt-list").classList.toggle("on",view==="list"); $("#vt-matrix").classList.toggle("on",matrix); $("#vt-levels").classList.toggle("on",levels); $("#vt-cards").classList.toggle("on",cards); $("#vt-timeline").classList.toggle("on",timeline);
@@ -2919,6 +2919,13 @@ function wireStatic(){
   on("#cmdk-btn",openCmdk);
   on("#five-open-btn",toggleFiveOpenMenu);
   on("#head-open-things",()=>{ if(SEL && SEL.id!=="trash") fiveOpenInThings(SEL.id); });
+  document.addEventListener("keydown",e=>{
+    if(e.key.toLowerCase()!=="t" || !e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.repeat) return;
+    if((e.target instanceof Element && e.target.closest("input,textarea,select,[contenteditable='true']")) || document.querySelector(".overlay.show,#cmdk.show")) return;
+    const button=MODE==="five"?$("#five-open-btn"):$("#head-open-things");
+    if(!button || button.hidden || (MODE!=="five" && !SEL)) return;
+    e.preventDefault(); button.click();
+  });
   on("#add-btn",()=>openCreate("todo"));
   const addBtn=$("#add-btn"); addBtn.draggable=false;
   pointerListDrag(addBtn,"magic");
