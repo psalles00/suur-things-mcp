@@ -483,7 +483,7 @@
   .five-days-grid, .five-lists-grid { min-width:max(1050px,calc(var(--five-visible,5) * 200px)); display:grid;
     grid-template-columns:repeat(var(--five-visible,5),minmax(0,1fr));
     column-gap:clamp(24px,4vw,80px); padding-left:clamp(30px,3.4vw,68px); padding-right:clamp(30px,2.3vw,46px); }
-  .five-days-grid { width:100%; min-height:max(250px,50vh); padding-top:17px; padding-bottom:20px; }
+  .five-days-grid { width:100%; padding-top:17px; padding-bottom:20px; }
   .five-lists-grid { width:100%; padding-top:44px; padding-bottom:24px; }
   .five-lists-grid.is-wide { width:max-content; grid-template-columns:repeat(var(--five-count),var(--five-col-width,312px)); }
   .five-datecol, .five-listcol { min-width:0; min-height:0; display:flex; flex-direction:column; }
@@ -549,6 +549,7 @@
     height:var(--five-row-height); padding:7px 8px; color:var(--five-accent);
     background:rgba(147,56,223,.07); opacity:0; pointer-events:none; }
   .five-lines:hover::after { opacity:1; }
+  .five-datecol .five-lines { flex:0 0 auto; min-height:0; }
   .five-listcol .five-lines { flex:0 0 auto; min-height:0; }
   .five-toolbar { height:57px; display:flex; align-items:center; gap:18px;
     border-top:1px solid #ededf0; border-bottom:1px solid #ededf0; padding:0 clamp(30px,3.4vw,68px);
@@ -2594,6 +2595,15 @@ function fivePaint(){
     if(FIVE_DATA.dayError && i===0){ const e=document.createElement("div"); e.className="five-error"; e.textContent=FIVE_DATA.dayError; body.appendChild(e); }
     const lines=document.createElement("div"); lines.className="five-lines"; fiveActivateBlankLines(lines); body.appendChild(lines);
     col.append(head,body); dg.appendChild(col);
+  }
+  // Ten rows at minimum; once a day has more than seven occupied rows,
+  // every date column follows that longest day and ends with three guides.
+  const dateBodies=[...dg.querySelectorAll(".five-datecol .five-col-body")];
+  const dateRowCount=body=>body.querySelectorAll(".row,.five-group").length;
+  const dateRows=Math.max(10,3+Math.max(0,...dateBodies.map(dateRowCount)));
+  for(const body of dateBodies){
+    body.querySelector(".five-lines").style.height=
+      `calc(${dateRows-dateRowCount(body)} * var(--five-row-height))`;
   }
   const prefs=fivePrefs(), visibleIds=fiveVisibleListIds(), embeddedHost=fiveEmbeddedHost(), bar=$("#five-toolbar");
   bar.innerHTML=`<span class="five-tab">Lists</span><span class="five-count">${visibleIds.length} selected</span>
