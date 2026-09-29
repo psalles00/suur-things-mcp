@@ -55,7 +55,7 @@ from . import __version__, reads
 from . import config as boardcfg
 from . import native_order
 from . import organize as organizer
-from .urlscheme import ThingsURLError, execute
+from .urlscheme import ThingsURLError, build_url, execute
 
 # In-memory organize jobs (single uvicorn worker). job_id -> dict.
 _ORGANIZE_JOBS: dict[str, dict] = {}
@@ -665,6 +665,31 @@ async def _open(request: Request) -> JSONResponse:
     return JSONResponse({"ok": False, "error": "bad target"})
 
 
+async def _open_things_list(request: Request) -> JSONResponse:
+    """Ask macOS to show a known project or Inbox in Things."""
+    body = await _json_body(request)
+    if body is None:
+        return JSONResponse({"ok": False, "error": "invalid JSON body"}, status_code=400)
+    list_id = body.get("list_id")
+    if not isinstance(list_id, str):
+        return JSONResponse({"ok": False, "error": "invalid list"}, status_code=400)
+    if list_id != "inbox":
+        if not re.fullmatch(r"[A-Za-z0-9]{20,30}", list_id):
+            return JSONResponse({"ok": False, "error": "invalid project ID"}, status_code=400)
+        item = await run_in_threadpool(lambda: reads.get(list_id))
+        if not item or item.get("type") != "project":
+            return JSONResponse({"ok": False, "error": "project not found"}, status_code=404)
+    url = build_url("show", {"id": list_id})
+    try:
+        result = await run_in_threadpool(lambda: subprocess.run(
+            ["open", url], capture_output=True, text=True, timeout=10))
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return JSONResponse({"ok": False, "error": f"Could not open Things: {exc}"})
+    if result.returncode:
+        return JSONResponse({"ok": False, "error": result.stderr.strip() or "Could not open Things"})
+    return JSONResponse({"ok": True})
+
+
 _MAX_ATTACH_BYTES = 12 * 1024 * 1024  # 12 MB per image
 
 
@@ -860,6 +885,7 @@ def create_app(port: int = DEFAULT_PORT) -> Starlette:
             Route("/api/reorder", _reorder, methods=["POST"]),
             Route("/api/move-to-inbox", _move_to_inbox, methods=["POST"]),
             Route("/api/open", _open, methods=["POST"]),
+            Route("/api/open-things-list", _open_things_list, methods=["POST"]),
             Route("/api/attachment", _attachment),
             Route("/api/attach", _attach, methods=["POST"]),
             Route("/api/detach", _detach, methods=["POST"]),
