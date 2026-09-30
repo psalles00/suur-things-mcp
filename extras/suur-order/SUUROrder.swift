@@ -3,11 +3,18 @@ import ApplicationServices
 import Foundation
 
 let args = CommandLine.arguments
-guard AXIsProcessTrusted() else {
+let checkReceipt = args.count == 3 && args[1] == "--check" ? args[2] : nil
+let accessibilityGranted = AXIsProcessTrusted()
+if let checkReceipt {
+    try? (accessibilityGranted ? "allowed" : "denied").write(
+        toFile: checkReceipt, atomically: true, encoding: .utf8
+    )
+}
+guard accessibilityGranted else {
     fputs("SUUR Order needs macOS Accessibility access.\n", stderr)
     exit(2)
 }
-if args.count == 2 && args[1] == "--check" {
+if (args.count == 2 || checkReceipt != nil) && args[1] == "--check" {
     exit(0)
 }
 guard args.count == 4,

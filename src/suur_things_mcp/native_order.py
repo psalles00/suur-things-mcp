@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 import json
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 
@@ -16,8 +17,10 @@ from . import reads
 
 
 _ID = re.compile(r"^[A-Za-z0-9_-]{10,80}$")
-_ACCESS_ERROR = "Allow SUUR Order in System Settings > Privacy & Security > Device Control and Data Access to reorder Things tasks."
+_ACCESS_ERROR = "SUUR Order did not confirm Device Control and Data Access permission. Reopen its macOS permission or reinstall the helper."
 _HELPER = Path.home() / "Applications/SUUR Order.app/Contents/MacOS/SUUROrder"
+_HELPER_APP = _HELPER.parent.parent.parent
+_ACCESS_CACHE: tuple[float, bool] | None = None
 _READ_SCRIPT = r'''
 function run(argv) {
     var things = Application('Things3');
@@ -63,11 +66,35 @@ def native_ids(list_id: str) -> list[str]:
 
 
 def order_writable() -> bool:
-    try:
-        return subprocess.run([str(_HELPER), "--check"], capture_output=True,
-                              timeout=3).returncode == 0
-    except (OSError, subprocess.TimeoutExpired):
+    # A direct subprocess inherits the dashboard's TCC attribution. On macOS
+    # this can report denied even when SUUR Order itself is enabled in Settings.
+    # LaunchServices gives the helper its own app identity. The helper writes a
+    # receipt because `open` reports launch success, not the app's exit status.
+    global _ACCESS_CACHE
+    if _ACCESS_CACHE and time.monotonic() - _ACCESS_CACHE[0] < 5:
+        return _ACCESS_CACHE[1]
+    if not _HELPER.is_file():
+        _ACCESS_CACHE = (time.monotonic(), False)
         return False
+    allowed = False
+    try:
+        with tempfile.TemporaryDirectory(prefix="suur-order-check-") as tmp:
+            receipt = Path(tmp) / "access"
+            launched = subprocess.run(
+                ["/usr/bin/open", "-n", "-a", str(_HELPER_APP),
+                 "--args", "--check", str(receipt)],
+                capture_output=True, timeout=3, check=False,
+            )
+            if launched.returncode == 0:
+                for _ in range(30):
+                    if receipt.exists():
+                        allowed = receipt.read_text(encoding="utf-8") == "allowed"
+                        break
+                    time.sleep(0.1)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    _ACCESS_CACHE = (time.monotonic(), allowed)
+    return allowed
 
 
 def move_to_inbox(task_id: str) -> None:
@@ -142,7 +169,8 @@ def _tasks(list_id: str) -> list[dict]:
 def _move(task_id: str, direction: str, count: int) -> None:
     try:
         result = subprocess.run(
-            [str(_HELPER), task_id, direction, str(count)],
+            ["/usr/bin/open", "-n", "-a", str(_HELPER_APP),
+             "--args", task_id, direction, str(count)],
             capture_output=True, text=True, timeout=max(10, count * 0.2 + 5),
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
@@ -176,8 +204,9 @@ def reorder(list_id: str, moved_id: str, target_id: str, before: bool) -> list[s
         return order
     destination = order.index(moved_id)
     source = original.index(moved_id)
-    _move(moved_id, "up" if source > destination else "down", abs(source - destination))
-    for attempt in range(12):
+    steps = abs(source - destination)
+    _move(moved_id, "up" if source > destination else "down", steps)
+    for attempt in range(max(30, int(steps * 0.7) + 30)):
         if attempt:
             time.sleep(0.1)
         observed = native_ids(list_id)
@@ -185,4 +214,6 @@ def reorder(list_id: str, moved_id: str, target_id: str, before: bool) -> list[s
             return order
         if set(observed) != set(original):
             raise NativeOrderError("Things changed while moving the task. Refresh both lists.")
-    raise NativeOrderError("Things did not confirm the requested position. Check the native app.")
+    raise NativeOrderError(
+        "Things did not confirm the requested position. Check SUUR Order's Device Control and Data Access permission and the native Things app."
+    )

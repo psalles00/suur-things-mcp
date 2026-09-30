@@ -14,3 +14,7 @@ The helper accepts only a Things task ID, `up` or `down`, and a bounded number
 of steps. The dashboard reads the native order back and reports an error unless
 Things confirms the requested position. It targets the running Things process
 without changing the foreground app.
+
+The dashboard starts the app through LaunchServices. Executing the helper as a
+direct child of the dashboard can make macOS attribute its Accessibility check
+to the dashboard, even when SUUR Order is enabled in System Settings.
