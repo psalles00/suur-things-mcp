@@ -143,6 +143,18 @@ def get(uuid: str) -> dict | None:
     return things.get(uuid, **_kw())
 
 
+def todo_trashed(uuid: str) -> bool | None:
+    """Fresh read of a to-do's Trash state, without modifying Things' database."""
+    con = sqlite3.connect(_db_uri(immutable=False), uri=True)
+    try:
+        row = con.execute(
+            "SELECT trashed FROM TMTask WHERE uuid = ? AND type = 0", (uuid,)
+        ).fetchone()
+        return bool(row[0]) if row else None
+    finally:
+        con.close()
+
+
 def heading_ids(project_id: str, title: str) -> set[str]:
     """Read back headings in one project without writing to the Things database."""
     con = sqlite3.connect(_db_uri(immutable=False), uri=True)

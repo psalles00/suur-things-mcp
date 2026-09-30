@@ -51,7 +51,7 @@ from starlette.requests import Request
 from starlette.responses import FileResponse, HTMLResponse, JSONResponse
 from starlette.routing import Route
 
-from . import __version__, calendar_events, calendar_open, native_order, reads
+from . import __version__, calendar_events, calendar_open, native_order, reads, task_trash
 from . import config as boardcfg
 from . import organize as organizer
 from .urlscheme import ThingsURLError, build_url, execute
@@ -436,6 +436,19 @@ async def _update(request: Request) -> JSONResponse:
         await run_in_threadpool(lambda: execute("update", params, auth_token=token))
         return JSONResponse({"ok": True})
     except ThingsURLError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)})
+
+
+async def _trash_task(request: Request) -> JSONResponse:
+    if not _auth_token():
+        return JSONResponse({"ok": False, "error": "THINGS_AUTH_TOKEN not set"})
+    body = await _json_body(request)
+    if body is None or not isinstance(body.get("id"), str):
+        return JSONResponse({"ok": False, "error": "invalid task ID"}, status_code=400)
+    try:
+        await run_in_threadpool(task_trash.move_to_trash, body["id"])
+        return JSONResponse({"ok": True})
+    except task_trash.TaskTrashError as exc:
         return JSONResponse({"ok": False, "error": str(exc)})
 
 
@@ -924,6 +937,7 @@ def create_app(port: int = DEFAULT_PORT) -> Starlette:
             Route("/api/config", _config_post, methods=["POST"]),
             Route("/api/link", _link_post, methods=["POST"]),
             Route("/api/update", _update, methods=["POST"]),
+            Route("/api/trash-task", _trash_task, methods=["POST"]),
             Route("/api/rename", _rename, methods=["POST"]),
             Route("/api/add", _add, methods=["POST"]),
             Route("/api/reorder", _reorder, methods=["POST"]),

@@ -438,6 +438,7 @@
   .ctxmenu.show { opacity:1; transform:none; }
   .ctxmenu .mi { padding:6px 12px; border-radius:7px; cursor:pointer; font-size:13px; white-space:nowrap; }
   .ctxmenu .mi:hover { background:var(--row-hover); }
+  .ctxmenu .mi.danger { color:var(--red); }
   .ctxmenu .sep { height:1px; background:var(--divider); margin:4px 6px; }
   /* quick-add: pills previewing what the NLP shorthand will become */
   .ec-pill.parsed { background:transparent; border:1px dashed var(--pill-border); color:var(--muted); }
@@ -2972,10 +2973,18 @@ function enterBatchMoveScreen(){
 
 // --- right-click task menu (rows, matrix/level cards, task cards) ---
 function closeCtxMenu(){ const m=$("#ctxmenu"); if(m) m.remove(); }
+async function trashTask(it){
+  if(!AUTH){ alert("Configure THINGS_AUTH_TOKEN para excluir tarefas."); return; }
+  if(!confirm("Mover ‘"+(it.title||"esta tarefa")+"’ para a Lixeira do Things? Você pode restaurá-la no app Things.")) return;
+  ++CONTENT_REQUEST;
+  const r=await postJSON("/api/trash-task",{id:it.uuid});
+  if(!r.ok){ alert("Não foi possível excluir a tarefa: "+(r.error||"erro desconhecido")); return; }
+  refreshAfterWrite();
+}
 function taskCtxMenu(it, x, y){
   closeCtxMenu();
   const m=document.createElement("div"); m.className="ctxmenu"; m.id="ctxmenu";
-  const mi=(label,fn)=>{ const d=document.createElement("div"); d.className="mi"; d.textContent=label;
+  const mi=(label,fn,danger=false)=>{ const d=document.createElement("div"); d.className="mi"+(danger?" danger":""); d.textContent=label;
     d.onclick=()=>{ closeCtxMenu(); fn(); }; m.appendChild(d); };
   const sep=()=>{ const d=document.createElement("div"); d.className="sep"; m.appendChild(d); };
   mi("✓ Complete",()=>{ applyStatus(it.uuid,"completed").then(ok=>{ if(ok) rerenderCurrent(); }); });
@@ -2990,6 +2999,10 @@ function taskCtxMenu(it, x, y){
   sep();
   mi("Move to project…",()=>{ openCmdk(); enterMoveScreen({uuid:it.uuid,title:it.title}); });
   mi("Open in Things ↗",()=>{ window.location.href="things:///show?id="+encodeURIComponent(it.uuid); });
+  if(!(MODE!=="five" && SEL?.id==="trash")){
+    sep();
+    mi("Excluir tarefa",()=>trashTask(it),true);
+  }
   document.body.appendChild(m);
   const r=m.getBoundingClientRect();   // clamp to the viewport, then ease in from the cursor corner
   m.style.left=Math.min(x, innerWidth-r.width-8)+"px";
